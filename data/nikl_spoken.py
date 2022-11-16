@@ -1,7 +1,6 @@
 from util import handle_all_files, clean, read_json, join_utterance
 
 
-
 def handle_file(file):
     file = read_json(file)
 
@@ -20,22 +19,14 @@ def handle_file(file):
             if len(u) == 0:
                 u = uttr["note"]
 
-            uttrs.append({
-                "speaker": s,
-                "text": u
-            })
-        
+            uttrs.append({"speaker": s, "text": u})
+
         text, speakers = join_utterance(uttrs)
 
-        yield {
-            "text": text,
-            "speakers": speakers
-        }
+        yield {"text": text, "speakers": speakers}
+
 
 if __name__ == "__main__":
     handle_all_files(
-        "nikl_spoken_v1.2",
-        "**/*.json",
-        "output/nikl_spoken_v1.2.jsonl",
-        handle_file
+        "nikl_spoken_v1.2", "**/*.json", "output/nikl_spoken_v1.2.jsonl", handle_file
     )

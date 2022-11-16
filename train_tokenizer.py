@@ -1,5 +1,5 @@
 from tokenizers import ByteLevelBPETokenizer
-import os 
+import os
 
 special_tokens = [
     "<pad>",
@@ -9,8 +9,8 @@ special_tokens = [
     "<sys>",
     "<unk>",
     "<mask>",
-    "<|endoftext|>"
-] + [f"<unused{i}" for i in range(1, 65)]
+    "<|endoftext|>",
+] + [f"<unused{i}>" for i in range(1, 65)]
 
 tokenizer = ByteLevelBPETokenizer()
 
@@ -25,7 +25,6 @@ tokenizer.train(
     files=files,
     vocab_size=vocab_size,
     min_frequency=min_freq,
-    special_tokens=special_tokens
+    special_tokens=special_tokens,
 )
 tokenizer.save_model(f"tokenizer-{vocab_size}/")
-

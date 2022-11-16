@@ -9,14 +9,8 @@ def handle_file(file):
         text = " ".join(sents)
         text = clean(text)
 
-        yield {
-            "text": text
-        }
+        yield {"text": text}
+
 
 if __name__ == "__main__":
-    handle_all_files(
-        "nia_spoken/",
-        "**/*.json",
-        "output/nia_spoken.jsonl",
-        handle_file
-    )
+    handle_all_files("nia_spoken/", "**/*.json", "output/nia_spoken.jsonl", handle_file)

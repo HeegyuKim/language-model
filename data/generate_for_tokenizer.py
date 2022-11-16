@@ -5,11 +5,13 @@ from tqdm import tqdm
 
 data_dir = "tokenizer_data"
 
+
 def write_iter(filename, iter):
     with open(data_dir + "/" + filename, "w", encoding="utf-8") as f:
         for item in tqdm(iter, desc=filename):
             f.write(item["text"])
             f.write("\n")
+
 
 dataset_paths = [
     # "heegyu/kowikitext",
@@ -28,7 +30,7 @@ jsonl_files = [
     "nia_spoken.jsonl",
     # "nia_web.jsonl", # 넘 많다.
     "nikl_messenger_v2.0.jsonl",
-    "nikl_spoken_v1.2.jsonl"
+    "nikl_spoken_v1.2.jsonl",
 ]
 for file in jsonl_files:
     print(file)

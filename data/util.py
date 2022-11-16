@@ -8,10 +8,12 @@ from tqdm import tqdm
 from traceback import print_exc
 
 
-emojis = ''.join(emoji.UNICODE_EMOJI.keys())
-pattern = re.compile(f'[^ .,?!/@$%~％·∼()\x00-\x7Fㄱ-힣{emojis}]+')
+emojis = "".join(emoji.UNICODE_EMOJI.keys())
+pattern = re.compile(f"[^ .,?!/@$%~％·∼()\x00-\x7Fㄱ-힣{emojis}]+")
 url_pattern = re.compile(
-    r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)')
+    r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"
+)
+
 
 def clean(x):
     """
@@ -22,12 +24,13 @@ def clean(x):
         - 한편, 한글 범위를 ㄱ-ㅎ가-힣 으로 지정해 ㄱ-힣 내의 한자를 제외했습니다.
         - 댓글 내 중복 문자열 축약: ㅋㅋㅋㅋㅋ와 같이 중복된 글자를 ㅋㅋ와 같은 것으로 합쳤습니다.
     """
-    x = pattern.sub(' ', x)
-    x = url_pattern.sub('', x)
+    x = pattern.sub(" ", x)
+    x = url_pattern.sub("", x)
     x = x.strip()
-    x = repeat_normalize(x, num_repeats=2) # 와하하하하하하하하하핫 -> 와하하핫
-    x = emoticon_normalize(x, num_repeats=2) # ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ쿠ㅜㅜㅜㅜㅜㅜ -> ㅋㅋㅜㅜ
+    x = repeat_normalize(x, num_repeats=2)  # 와하하하하하하하하하핫 -> 와하하핫
+    x = emoticon_normalize(x, num_repeats=2)  # ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ쿠ㅜㅜㅜㅜㅜㅜ -> ㅋㅋㅜㅜ
     return x
+
 
 def join_utterance(uttrs):
     last_s = None
@@ -50,16 +53,20 @@ def join_utterance(uttrs):
 
     return out, speakers
 
+
 def read_json(filename: str):
     with open(filename, encoding="utf-8") as f:
         return json.load(f)
+
 
 def iter_jsonlines(filename: str):
     with jsonlines.open(filename) as f:
         yield from f
 
 
-def handle_all_files(dir: str, pattern: str, target_file: str, parse_func, max_items=None):
+def handle_all_files(
+    dir: str, pattern: str, target_file: str, parse_func, max_items=None
+):
 
     fout = jsonlines.open(target_file, "w")
     i = 0

@@ -18,24 +18,14 @@ def handle_file(file):
 
                 u = uttr["utterance"]
 
-                uttrs.append({
-                    "speaker": s,
-                    "text": u
-                })
-            
+                uttrs.append({"speaker": s, "text": u})
+
             text, speakers = join_utterance(uttrs)
 
-            yield {
-                "text": clean(text),
-                "speakers": speakers
-            }
+            yield {"text": clean(text), "speakers": speakers}
 
     f.close()
 
+
 if __name__ == "__main__":
-    handle_all_files(
-        "nia_sns/",
-        "**/*.json",
-        "output/nia_sns.jsonl",
-        handle_file
-    )
+    handle_all_files("nia_sns/", "**/*.json", "output/nia_sns.jsonl", handle_file)
