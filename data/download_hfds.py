@@ -4,10 +4,11 @@ import os
 
 
 datasets = [
-    "heegyu/kowikitext",
-    "heegyu/namuwiki-extracted",
-    "heegyu/aihub_sns_dialog_gpt",
-    "heegyu/nikl_messenger_dialog_gpt"
+    # "heegyu/kowikitext",
+    # "heegyu/namuwiki-extracted",
+    # "heegyu/aihub_sns_dialog_gpt",
+    # "heegyu/nikl_messenger_dialog_gpt",
+    "heegyu/aihub_spoken_2021"
 ]
 
 

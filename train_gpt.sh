@@ -17,6 +17,7 @@ OVERWRITE=true
 # --dataset_file $DATASET_NAME \
 # --do_eval \
 python train_clm_pt.py \
+    --run_name $RUN_NAME \
     --config_name $MODEL_NAME \
     --tokenizer_name $MODEL_NAME \
     --train_file "data/test/*.json" \
@@ -25,10 +26,10 @@ python train_clm_pt.py \
     --per_device_eval_batch_size $BATCH_SIZE \
     --do_train \
     --gradient_accumulation_steps 1 \
-    --save_steps 10000 \
+    --save_steps 50000 \
     --eval_steps 10000 \
     --fp16 true \
     --block_size $BLOCK_SIZE \
     --deepspeed deepspeed/stage2.json \
-    --output_dir "/tmp/$RUN_NAME" \
+    --output_dir "checkpoint/$RUN_NAME" \
     --overwrite_output_dir $OVERWRITE
