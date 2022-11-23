@@ -16,9 +16,11 @@ url_pattern = re.compile(
 
 kor_pattern = re.compile("[ㄱ-ㅎ가-힣]+")
 
+
 def get_korean_ratio(x):
     y = kor_pattern.sub("", x)
     return 1 - (len(y) / len(x))
+
 
 def clean(x):
     """

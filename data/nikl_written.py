@@ -8,11 +8,10 @@ def handle_file(file):
         item = doc["metadata"].copy()
         para = doc["paragraph"]
         paras = [p["form"] for p in para]
-        
+
         item["text"] = "\n".join(paras)
 
         yield item
-
 
 
 if __name__ == "__main__":

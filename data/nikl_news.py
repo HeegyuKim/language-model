@@ -8,11 +8,10 @@ def handle_file(file):
         item = doc["metadata"].copy()
         para = doc["paragraph"]
         paras = [clean(p["form"]) for p in para]
-        
+
         item["text"] = "\n".join(paras)
 
         yield item
-
 
 
 if __name__ == "__main__":
@@ -23,6 +22,4 @@ if __name__ == "__main__":
     ]
 
     for d, f in dirs:
-        handle_all_files(
-            "nikl_news", f"{d}/**/*.json", f"output/{f}", handle_file
-        )
+        handle_all_files("nikl_news", f"{d}/**/*.json", f"output/{f}", handle_file)
