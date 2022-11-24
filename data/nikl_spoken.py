@@ -9,12 +9,6 @@ def handle_file(file):
 
         for uttr in ne["utterance"]:
             s = uttr["speaker_id"]
-
-            if s[1:].isnumeric():
-                s = int(s[1:])
-            else:
-                s = -1
-
             u = uttr["form"]
             if len(u) == 0:
                 u = uttr["note"]
@@ -23,7 +17,10 @@ def handle_file(file):
 
         text, speakers = join_utterance(uttrs)
 
-        yield {"text": text, "speakers": speakers}
+        item = ne["metadata"].copy()
+        item["text"] = text
+        item["speakers"] = speakers
+        yield item
 
 
 if __name__ == "__main__":

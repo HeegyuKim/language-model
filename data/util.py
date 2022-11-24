@@ -50,12 +50,12 @@ def join_utterance(uttrs):
 
         if last_s is None:
             out = t
+            speakers.append(s)
         elif s == last_s:
             out += " " + t
         else:
             out += "\n" + t
-
-        speakers.append(s)
+            speakers.append(s)
         last_s = s
 
     return out, speakers
@@ -88,6 +88,8 @@ def handle_all_files(
                     break
             if max_items is not None and i >= max_items:
                 break
+        except KeyboardInterrupt:
+            break
         except:
             print_exc()
             print("file: ", str(file))
