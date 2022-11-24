@@ -4,21 +4,39 @@ import os
 
 
 datasets = [
+    # For tiny
     # "heegyu/kowikitext",
     # "heegyu/namuwiki-extracted",
     # "heegyu/aihub_sns_dialog_gpt",
     # "heegyu/nikl_messenger_dialog_gpt",
-    "heegyu/aihub_spoken_2021"
+    # "heegyu/aihub_spoken_2021",
+
+    # For small
+    # "heegyu/nikl_spoken",
+    # "heegyu/nikl_written",
+    # "heegyu/nia_web",
+    "heegyu/korean-petitions",
+    # "heegyu/nikl_daily_dialog_v1.2",
 ]
 
+def remove_speaker(x):
+    text = x["text"]
+    for i in range(4):
+        text = text.replace(f"{i} : ", "")
+
+    return {
+        "text": text
+    }
 
 def load_dataset_renamed(name):
     ds = load_dataset(name, split="train", use_auth_token=True)
-    name_vars = ["sentence", "dialog", "spoken"]
+    name_vars = ["sentence", "dialog", "spoken", "content", "form"]
 
     for var in name_vars:
         if var in ds.column_names:
             ds = ds.rename_column(var, "text")
+            if var == "dialog":
+                ds = ds.map(remove_speaker)
             break
 
     columns = set(ds.column_names)
