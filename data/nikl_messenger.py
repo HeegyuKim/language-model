@@ -9,7 +9,7 @@ def handle_file(file):
 
         for uttr in ne["utterance"]:
             s = int(uttr["speaker_id"])
-            u = uttr["form"]
+            u = clean(uttr["form"])
 
             uttrs.append({"speaker": s, "text": u})
 

@@ -9,10 +9,17 @@ from traceback import print_exc
 
 
 emojis = "".join(emoji.UNICODE_EMOJI.keys())
-pattern = re.compile(f"[^ .,?!/@$%~％·∼()\x00-\x7Fㄱ-힣{emojis}]+")
+pattern = re.compile(f"[^ .,?!/@$%~％·∼()\x00-\x7Fㄱ-ㅎ가-힣{emojis}]+")
 url_pattern = re.compile(
     r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"
 )
+
+kor_pattern = re.compile("[ㄱ-ㅎ가-힣]+")
+
+
+def get_korean_ratio(x):
+    y = kor_pattern.sub("", x)
+    return 1 - (len(y) / len(x))
 
 
 def clean(x):

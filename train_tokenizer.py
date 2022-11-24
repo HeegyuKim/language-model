@@ -37,12 +37,10 @@ dataset_paths = [
     # "heegyu/aihub_daily_conv_2022_gpt",
     # "heegyu/aihub_sns_dialog_gpt",
     # "heegyu/nikl_online_conv_2022_gpt",
-
     # written
     # "heegyu/aihub_web_2021", # sentence
     # "heegyu/namuwiki-sentences", # text
-    "heegyu/kowikitext", # text
-
+    "heegyu/kowikitext",  # text
     # spoken
     # "heegyu/aihub_spoken_2021", # sentence
 ]
@@ -50,6 +48,7 @@ print("train bpe tokenizers from", dataset_paths)
 
 dataset_paths = map(my_load_dataset, dataset_paths)
 dataset = interleave_datasets(list(dataset_paths), stopping_strategy="all_exhausted")
+
 
 def batch_iterator(dataset, batch_size=1000, drop_last: bool = False):
     batch = []
@@ -63,6 +62,7 @@ def batch_iterator(dataset, batch_size=1000, drop_last: bool = False):
 
     if not drop_last and batch:
         yield batch
+
 
 tokenizer.train_from_iterator(
     batch_iterator(dataset),

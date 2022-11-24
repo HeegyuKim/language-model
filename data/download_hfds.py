@@ -2,7 +2,6 @@ from datasets import load_dataset
 import os
 
 
-
 datasets = [
     # For tiny
     # "heegyu/kowikitext",
@@ -45,6 +44,7 @@ def load_dataset_renamed(name):
     ds = ds.filter(lambda x: len(x["text"]) >= 8)
 
     return ds
+
 
 target_dir = "test"
 os.makedirs(target_dir, exist_ok=True)
