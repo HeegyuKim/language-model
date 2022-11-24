@@ -11,10 +11,10 @@ datasets = [
     # "heegyu/aihub_spoken_2021",
 
     # For small
-    # "heegyu/nikl_spoken",
+    "heegyu/nikl_spoken",
     # "heegyu/nikl_written",
     # "heegyu/nia_web",
-    "heegyu/korean-petitions",
+    # "heegyu/korean-petitions",
     # "heegyu/nikl_daily_dialog_v1.2",
 ]
 
