@@ -21,6 +21,7 @@ https://huggingface.co/models?filter=text-generation
 """
 # You can also adapt this script on your own causal language modeling task. Pointers for this are left as comments.
 
+import transformers
 import json
 import logging
 import math
@@ -41,7 +42,6 @@ from tqdm import tqdm
 import jax
 import jax.numpy as jnp
 import optax
-import transformers
 from flax import jax_utils, traverse_util
 from flax.jax_utils import pad_shard_unpad, unreplicate
 from flax.training import train_state
@@ -57,9 +57,9 @@ from transformers import (
     is_tensorboard_available,
     set_seed,
 )
-from transformers.testing_utils import CaptureLogger
+# from transformers.testing_utils import CaptureLogger
 from transformers.utils import get_full_repo_name, send_example_telemetry
-
+from traceback import print_exc
 
 logger = logging.getLogger(__name__)
 
@@ -370,9 +370,13 @@ def data_loader(
 
     for idx in batch_idx:
         batch = dataset[idx]
-        batch = {k: np.array(v) for k, v in batch.items()}
+        try:
+            batch = {k: np.array(v, dtype=np.int64) for k, v in batch.items()}
+            yield batch
+        except:
+            print_exc()
+            print(batch)
 
-        yield batch
 
 
 def write_train_metric(summary_writer, train_metrics, train_time, step):
@@ -559,7 +563,6 @@ def main():
     if model_args.config_name:
         config = AutoConfig.from_pretrained(
             model_args.config_name,
-            cache_dir=model_args.cache_dir,
             use_auth_token=True if model_args.use_auth_token else None,
         )
     elif model_args.model_name_or_path:
@@ -619,14 +622,7 @@ def main():
     )
 
     def tokenize_function(examples):
-        with CaptureLogger(tok_logger) as cl:
-            output = tokenizer(examples[text_column_name])
-        # clm input could be much much longer than block_size
-        if "Token indices sequence length is longer than the" in cl.out:
-            tok_logger.warning(
-                "^^^^^^^^^^^^^^^^ Please ignore the warning above - this long input will be chunked into smaller bits"
-                " before being passed to the model."
-            )
+        output = tokenizer(examples[text_column_name])
         return output
 
     tokenized_datasets = dataset.map(
@@ -701,22 +697,23 @@ def main():
             eval_dataset = eval_dataset.select(range(max_eval_samples))
 
     # Enable tensorboard only on the master node
-    has_tensorboard = is_tensorboard_available()
-    if has_tensorboard and jax.process_index() == 0:
-        try:
-            from flax.metrics.tensorboard import SummaryWriter
+    # has_tensorboard = is_tensorboard_available()
+    has_tensorboard = False
+    # if has_tensorboard and jax.process_index() == 0:
+    #     try:
+    #         from flax.metrics.tensorboard import SummaryWriter
 
-            summary_writer = SummaryWriter(log_dir=Path(training_args.output_dir))
-        except ImportError as ie:
-            has_tensorboard = False
-            logger.warning(
-                f"Unable to display metrics through TensorBoard because some package are not installed: {ie}"
-            )
-    else:
-        logger.warning(
-            "Unable to display metrics through TensorBoard because the package is not installed: "
-            "Please run pip install tensorboard to enable."
-        )
+    #         summary_writer = SummaryWriter(log_dir=Path(training_args.output_dir))
+    #     except ImportError as ie:
+    #         has_tensorboard = False
+    #         logger.warning(
+    #             f"Unable to display metrics through TensorBoard because some package are not installed: {ie}"
+    #         )
+    # else:
+    #     logger.warning(
+    #         "Unable to display metrics through TensorBoard because the package is not installed: "
+    #         "Please run pip install tensorboard to enable."
+    #     )
 
     # Initialize our training
     rng = jax.random.PRNGKey(training_args.seed)
@@ -891,7 +888,7 @@ def main():
 
                 train_metrics = []
 
-            if cur_step % training_args.eval_steps == 0 and cur_step > 0:
+            if training_args.do_eval and cur_step % training_args.eval_steps == 0 and cur_step > 0:
                 # ======================== Evaluating ==============================
                 eval_metrics = []
                 eval_loader = data_loader(
