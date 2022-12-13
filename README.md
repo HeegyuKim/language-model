@@ -35,6 +35,7 @@ python3 -m pip install "jax[tpu]>=0.2.16" -f https://storage.googleapis.com/jax-
 python3 -m pip install transformers datasets huggingface_hub evaluate accelerate optax flax
 
 export USE_TORCH=False
+
 # 테스트 실행
 python3 jax_test.py
 ```
@@ -46,4 +47,10 @@ import transformers
 
 # 에러남, 이유 모름, 없애버렸음
 from transformers.testing_utils import CaptureLogger
+```
+
+## TPU-VM에서 Pytorch 학습하기
+WIP...
+```
+export XRT_TPU_CONFIG="localservice;0;localhost:51011"
 ```
