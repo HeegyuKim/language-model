@@ -5,6 +5,8 @@ import os
 import random
 from transformers import PreTrainedTokenizer
 from traceback import print_exc
+import torch_xla.core.xla_model as xm
+from tqdm import tqdm
 
 
 
@@ -62,16 +64,57 @@ class PLMDataset(IterableDataset):
             yield item
 
 
+class PLMDatasetForTPU(Dataset):
+    def __init__(self, dir_path: str, tokenizer: PreTrainedTokenizer, block_size: int, max_steps: int) -> None:
+        files = [os.path.join(dir_path, p) for p in os.listdir(dir_path)]
+        data = []
+        for file in files:
+            try:
+                block = []
+                with jsonlines.open(file) as f:
+                    for item in tqdm(f, desc=file):
+                        text = item['text']
+                        if len(text) <= 32:
+                            continue
+
+                        ids = tokenizer.encode(text)
+                        block.append(tokenizer.bos_token_id)
+                        block.extend(ids)
+
+                        while len(block) >= block_size:
+                            data.append(block) 
+                            block = block[block_size:]
+            except:
+                # UnicodeDecode error
+                print_exc()
+                print("file", file)
+
+        self.data = data
+        print("total ", len(self.data))
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        block = self.data[index]
+        return {
+            'input_ids': block,
+            'labels': block
+        }
+
+
 if __name__ == "__main__":
-    from transformers import AutoTokenizer
+    # from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained("heegyu/kogpt-neox-small")
-    dataset = PLMDataset("data/test/", tokenizer, 32)
+    # tokenizer = AutoTokenizer.from_pretrained("heegyu/kogpt-neox-small")
+    # dataset = PLMDataset("data/test/", tokenizer, 32)
 
-    print(dataset.files, dataset.weights)
-    dataset_iter = iter(dataset)
+    # print(dataset.files, dataset.weights)
+    # dataset_iter = iter(dataset)
     
-    for i, item in enumerate(dataset_iter):
-        print(tokenizer.decode(item["input_ids"]), len(item["input_ids"]), len(item["labels"]))
-        if i == 100:
-            break
+    # for i, item in enumerate(dataset_iter):
+    #     print(tokenizer.decode(item["input_ids"]), len(item["input_ids"]), len(item["labels"]))
+    #     if i == 100:
+    #         break
+
+    print(xm.get_ordinal(), xm.xrt_world_size())

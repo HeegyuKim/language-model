@@ -1,20 +1,23 @@
 from datasets import load_dataset
 import os
+from datasets import set_caching_enabled
+
+set_caching_enabled(False)
 
 
 datasets = [
     # For tiny
-    # "heegyu/kowikitext",
+    "heegyu/kowikitext",
     # "heegyu/namuwiki-extracted",
     # "heegyu/aihub_sns_dialog_gpt",
     # "heegyu/nikl_messenger_dialog_gpt",
     # "heegyu/aihub_spoken_2021",
 
     # For small
-    "heegyu/nikl_spoken",
+    # "heegyu/nikl_spoken",
     # "heegyu/nikl_written",
     # "heegyu/nia_web",
-    # "heegyu/korean-petitions",
+    "heegyu/korean-petitions",
     # "heegyu/nikl_daily_dialog_v1.2",
 ]
 
@@ -28,7 +31,7 @@ def remove_speaker(x):
     }
 
 def load_dataset_renamed(name):
-    ds = load_dataset(name, split="train", use_auth_token=True)
+    ds = load_dataset(name, split="train", use_auth_token=os.environ["HF_TOKEN"])
     name_vars = ["sentence", "dialog", "spoken", "content", "form"]
 
     for var in name_vars:

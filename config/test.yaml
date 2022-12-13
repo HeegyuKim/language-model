@@ -1,0 +1,14 @@
+run_name: test
+learning_rate: 5e-5
+batch_size: 1
+gradient_accumulation_size: 1
+max_steps: 1000000
+save_steps: 50000
+block_size: 1024
+
+model_name: heegyu/kogpt-j-base
+data_dir: data/gpt_block/heegyu__kogpt-j-base/
+accelerator: tpu
+devices: 8
+# accelerator: cpu
+# devices: 1

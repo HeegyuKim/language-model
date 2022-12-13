@@ -10,8 +10,8 @@ disable_caching()
 
 dataset_paths = [
     # For tiny
-    "heegyu/kowikitext",
-    "heegyu/namuwiki-extracted",
+    # "heegyu/kowikitext",
+    # "heegyu/namuwiki-extracted",
     "heegyu/aihub_sns_dialog_gpt",
     "heegyu/nikl_messenger_dialog_gpt",
     "heegyu/aihub_spoken_2021",
@@ -30,16 +30,28 @@ dataset_paths = [
 ]
 
 
+def remove_speaker(x):
+    text = x["text"]
+    for i in range(4):
+        text = text.replace(f"{i} : ", "")
+
+    return {
+        "text": text
+    }
+
 class GPTBlockBuilder:
     def load_dataset(self, name):
-        dataset = load_dataset(name, split="train")
-        name_vars = ["sentence", "dialog", "spoken", "document"]
+        ds = load_dataset(name, split="train")
+        name_vars = ["sentence", "dialog", "spoken", "document", "form"]
 
         for var in name_vars:
-            if var in dataset.column_names:
-                return dataset.rename_column(var, "text")
+            if var in ds.column_names:
+                ds = ds.rename_column(var, "text")
+                if var == "dialog":
+                    ds = ds.map(remove_speaker)
+                break
 
-        return dataset
+        return ds
 
     def build_block(self, dataset, key: str = "text"):
         ids = []
@@ -58,12 +70,12 @@ class GPTBlockBuilder:
              block_size: int,
              output_dir: str = "gpt_block"
              ):
-
+        tokenizer_name = tokenizer.replace("/", "__")
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
         self.bos_token_id = self.tokenizer.bos_token_id
         self.block_size = block_size
 
-        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(f"{output_dir}/{tokenizer_name}", exist_ok=True)
 
         for path in dataset_paths:
             name = path.replace("/", "__")
