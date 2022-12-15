@@ -12,19 +12,19 @@ dataset_paths = [
     # For tiny
     # "heegyu/kowikitext",
     # "heegyu/namuwiki-extracted",
-    "heegyu/aihub_sns_dialog_gpt",
-    "heegyu/nikl_messenger_dialog_gpt",
-    "heegyu/aihub_spoken_2021",
+    # "heegyu/aihub_sns_dialog_gpt",
+    # "heegyu/nikl_messenger_dialog_gpt",
+    # "heegyu/aihub_spoken_2021",
 
     # For small
-    "heegyu/nikl_spoken",
-    "heegyu/nikl_written",
-    "heegyu/nia_web",
-    "heegyu/korean-petitions",
-    "heegyu/nikl_daily_dialog_v1.2",
+    # "heegyu/nikl_spoken",
+    # "heegyu/nikl_written",
+    # "heegyu/nia_web",
+    # "heegyu/korean-petitions",
+    # "heegyu/nikl_daily_dialog_v1.2",
 
     # For base
-    "heegyu/nikl_news",
+    # "heegyu/nikl_news",
     "heegyu/nia_book",
     "Bingsu/KcBERT_Pre-Training_Corpus",
 ]
@@ -42,7 +42,7 @@ def remove_speaker(x):
 class GPTBlockBuilder:
     def load_dataset(self, name):
         ds = load_dataset(name, split="train")
-        name_vars = ["sentence", "dialog", "spoken", "document", "form"]
+        name_vars = ["sentence", "dialog", "spoken", "document", "form", "content"]
 
         for var in name_vars:
             if var in ds.column_names:
