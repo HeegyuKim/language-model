@@ -1,7 +1,7 @@
 
 export WANDB_PROJECT="gpt2"
 
-RUN_NAME="gpt-j-350m-v1-lr3e-4-batch8-rev1"
+RUN_NAME="gpt-j-350m-v1-lr3e-4-batch512-bf16-rev1"
 
 
 python3 train_clm_flax_v2.py \
