@@ -99,6 +99,9 @@ class TrainingArguments:
     per_device_eval_batch_size: int = field(
         default=8, metadata={"help": "Batch size per GPU/TPU core/CPU for evaluation."}
     )
+    gradient_accumulation_steps: int = field(
+        default=1, metadata={"help": "Gradient Accumulation Steps"}
+    )
     learning_rate: float = field(
         default=5e-5, metadata={"help": "The initial learning rate for AdamW."}
     )
@@ -344,6 +347,8 @@ class DataTrainingArguments:
 
 class TrainState(train_state.TrainState):
     dropout_rng: jnp.ndarray
+    grad_accum: jnp.ndarray
+    optimizer_step: int
 
     def replicate(self):
         return jax_utils.replicate(self).replace(
@@ -580,6 +585,7 @@ def main():
     train_batch_size = (
         int(training_args.per_device_train_batch_size) * jax.device_count()
     )
+    total_batch_size = int(train_batch_size) * training_args.gradient_accumulation_steps
     per_device_eval_batch_size = int(training_args.per_device_eval_batch_size)
     eval_batch_size = per_device_eval_batch_size * jax.device_count()
     steps_per_epoch = len(train_dataset) // train_batch_size
@@ -588,7 +594,7 @@ def main():
     # Create learning rate schedule
     linear_decay_lr_schedule_fn = create_learning_rate_fn(
         len(train_dataset),
-        train_batch_size,
+        total_batch_size,
         training_args.num_train_epochs,
         training_args.warmup_steps,
         training_args.learning_rate,
@@ -637,6 +643,8 @@ def main():
         params=model.params,
         tx=optimizer,
         dropout_rng=dropout_rng,
+        grad_accum=jax.tree_map(jnp.zeros_like, model.params),
+        optimizer_step=0
     )
 
     def loss_fn(logits, labels):
@@ -660,18 +668,33 @@ def main():
             return loss
 
         grad_fn = jax.value_and_grad(compute_loss)
-        loss, grad = grad_fn(state.params)
-        grad = jax.lax.pmean(grad, "batch")
+        loss, grads = grad_fn(state.params)
+        grad_accum = jax.tree_map(lambda x, y: x + y, grads, state.grad_accum)
+        
+        def update_fn():
+            grads = jax.tree_map(lambda x: x / training_args.gradient_accumulation_steps, grad_accum)
+            grads = jax.lax.pmean(grads, "batch")
+            new_state = state.apply_gradients(
+                grads=grads, grad_accum=jax.tree_map(jnp.zeros_like, grads), optimizer_step=state.optimizer_step
+            )
+            return new_state
 
-        new_state = state.apply_gradients(grads=grad, dropout_rng=new_dropout_rng)
+        new_state = jax.lax.cond(
+            state.step % training_args.gradient_accumulation_steps == 0,
+            lambda _: update_fn(),
+            lambda _: state.replace(grad_accum=grad_accum, step=state.step + 1),
+            None,
+        )
 
+        metrics = {"loss": loss, "learning_rate": linear_decay_lr_schedule_fn(state.optimizer_step)}
+    
         metrics = {
             "loss": loss,
             "learning_rate": linear_decay_lr_schedule_fn(state.step),
         }
         metrics = jax.lax.pmean(metrics, axis_name="batch")
 
-        return new_state, metrics
+        return new_state.replace(dropout_rng=new_dropout_rng), metrics
 
     # Define eval fn
     def eval_step(params, batch):
@@ -698,7 +721,7 @@ def main():
         f"  Instantaneous batch size per device = {training_args.per_device_train_batch_size}"
     )
     logger.info(
-        f"  Total train batch size (w. parallel & distributed) = {train_batch_size}"
+        f"  Total train batch size (w. parallel & distributed) = {train_batch_size * training_args.gradient_accumulation_steps}"
     )
     logger.info(f"  Total optimization steps = {total_train_steps}")
 
