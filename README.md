@@ -22,7 +22,7 @@ gcloud compute tpus tpu-vm ssh ${TPU_NAME} --zone us-central1-f --project ${PROJ
 버전은 
 - tpu-vm-base: 기본, jax 쓰려면 이거
 - tpu-vm-tf-2.9.2: tensorflow
-- tpu-vm-pt-1.12: 파이토치, 근데 느려터졌음
+- tpu-vm-pt-1.12: 파이토치, 근데 느려터졌음. 내가 잘못했을 수도...
 
 accelerator-type
 - v2-8: preemptible 아니어도 잘 잡힘, 실패할 때도 있는데 하다보면 됨
@@ -59,3 +59,5 @@ export XRT_TPU_CONFIG="localservice;0;localhost:51011"
 # TODO
 - [ ] wandb integration
 - [ ] gradient accumulation
+- [ ] resume training
+- [ ] CPU 에서 불러오고Inference

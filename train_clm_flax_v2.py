@@ -60,6 +60,7 @@ from transformers import (
 # from transformers.testing_utils import CaptureLogger
 from transformers.utils import get_full_repo_name, send_example_telemetry
 from traceback import print_exc
+import wandb
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,11 @@ MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
 @dataclass
 class TrainingArguments:
+    run_name: str = field(
+        metadata={
+            "help": "The run name for wandb."
+        },
+    )
     output_dir: str = field(
         metadata={
             "help": "The output directory where the model predictions and checkpoints will be written."
@@ -696,6 +702,8 @@ def main():
     )
     logger.info(f"  Total optimization steps = {total_train_steps}")
 
+    wandb.init(name=training_args.run_name)
+
     train_time = 0
     train_metrics = []
     epochs = tqdm(range(num_epochs), desc="Epoch ... ", position=0)
@@ -735,6 +743,11 @@ def main():
                     f"Step... ({cur_step} | Loss: {train_metric['loss'].mean()}, Learning Rate:"
                     f" {train_metric['learning_rate'].mean()})"
                 )
+                wandb.log({
+                    "train/loss": train_metric['loss'].mean(),
+                    "train/learning_rate": train_metric['learning_rate'].mean(),
+                    "train/global_step": cur_step
+                })
 
                 train_metrics = []
 
@@ -780,13 +793,14 @@ def main():
                 # save checkpoint after each epoch and push checkpoint to the hub
                 if jax.process_index() == 0:
                     params = jax.device_get(unreplicate(state.params))
-                    model.save_pretrained(training_args.output_dir, params=params)
-                    tokenizer.save_pretrained(training_args.output_dir)
-                    if training_args.push_to_hub:
-                        repo.push_to_hub(
-                            commit_message=f"Saving weights and logs of step {cur_step}",
-                            blocking=False,
-                        )
+                    model.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}", params=params)
+                    tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}")
+
+    # save last step
+    if jax.process_index() == 0:
+        params = jax.device_get(unreplicate(state.params))
+        model.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}", params=params)
+        tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}")
 
     # Eval after training
     if training_args.do_eval:
