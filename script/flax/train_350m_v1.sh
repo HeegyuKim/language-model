@@ -22,5 +22,5 @@ python3 train_clm_flax_v2.py \
     --adam_beta1="0.9" --adam_beta2="0.98" --weight_decay="0.01" \
     --overwrite_output_dir \
     --num_train_epochs="3" \
-    --logging_steps="512" \
-    --save_steps="100000"
+    --logging_steps="10" \
+    --save_steps="2500"

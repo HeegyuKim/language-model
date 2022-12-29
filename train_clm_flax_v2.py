@@ -687,11 +687,6 @@ def main():
         )
 
         metrics = {"loss": loss, "learning_rate": linear_decay_lr_schedule_fn(state.optimizer_step)}
-    
-        metrics = {
-            "loss": loss,
-            "learning_rate": linear_decay_lr_schedule_fn(state.step),
-        }
         metrics = jax.lax.pmean(metrics, axis_name="batch")
 
         return new_state.replace(dropout_rng=new_dropout_rng), metrics
@@ -751,16 +746,13 @@ def main():
             state, train_metric = p_train_step(state, batch)
             train_metrics.append(train_metric)
 
-            cur_step = epoch * (len(train_dataset) // train_batch_size) + step
+            cur_step = epoch * (len(train_dataset) // train_batch_size) + step 
+            cur_step = cur_step // training_args.gradient_accumulation_steps
 
             if cur_step % training_args.logging_steps == 0 and cur_step > 0:
                 # Save metrics
                 train_metric = unreplicate(train_metric)
                 train_time += time.time() - train_start
-                if has_tensorboard and jax.process_index() == 0:
-                    write_train_metric(
-                        summary_writer, train_metrics, train_time, cur_step
-                    )
 
                 epochs.write(
                     f"Step... ({cur_step} | Loss: {train_metric['loss'].mean()}, Learning Rate:"
