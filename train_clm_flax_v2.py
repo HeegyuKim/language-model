@@ -348,6 +348,7 @@ class DataTrainingArguments:
 class TrainState(train_state.TrainState):
     dropout_rng: jnp.ndarray
     grad_accum: jnp.ndarray
+    step: int
     optimizer_step: int
 
     def replicate(self):
@@ -423,7 +424,7 @@ def create_learning_rate_fn(
     )
     decay_fn = optax.linear_schedule(
         init_value=learning_rate,
-        end_value=0,
+        end_value=0.1 * learning_rate,
         transition_steps=num_train_steps - num_warmup_steps,
     )
     schedule_fn = optax.join_schedules(
@@ -585,7 +586,7 @@ def main():
     train_batch_size = (
         int(training_args.per_device_train_batch_size) * jax.device_count()
     )
-    total_batch_size = int(train_batch_size) * training_args.gradient_accumulation_steps
+    # total_batch_size = int(train_batch_size) * training_args.gradient_accumulation_steps
     per_device_eval_batch_size = int(training_args.per_device_eval_batch_size)
     eval_batch_size = per_device_eval_batch_size * jax.device_count()
     steps_per_epoch = len(train_dataset) // train_batch_size
@@ -594,7 +595,7 @@ def main():
     # Create learning rate schedule
     linear_decay_lr_schedule_fn = create_learning_rate_fn(
         len(train_dataset),
-        total_batch_size,
+        train_batch_size,
         training_args.num_train_epochs,
         training_args.warmup_steps,
         training_args.learning_rate,
@@ -675,8 +676,11 @@ def main():
             grads = jax.tree_map(lambda x: x / training_args.gradient_accumulation_steps, grad_accum)
             grads = jax.lax.pmean(grads, "batch")
             new_state = state.apply_gradients(
-                grads=grads, grad_accum=jax.tree_map(jnp.zeros_like, grads), optimizer_step=state.optimizer_step
+                grads=grads, 
+                grad_accum=jax.tree_map(jnp.zeros_like, grads), 
+                optimizer_step=state.step
             )
+            new_state = new_state.replace(step=state.step + 1)
             return new_state
 
         new_state = jax.lax.cond(
@@ -686,7 +690,7 @@ def main():
             None,
         )
 
-        metrics = {"loss": loss, "learning_rate": linear_decay_lr_schedule_fn(state.optimizer_step)}
+        metrics = {"loss": loss, "learning_rate": linear_decay_lr_schedule_fn(state.step)}
         metrics = jax.lax.pmean(metrics, axis_name="batch")
 
         return new_state.replace(dropout_rng=new_dropout_rng), metrics
@@ -747,20 +751,20 @@ def main():
             train_metrics.append(train_metric)
 
             cur_step = epoch * (len(train_dataset) // train_batch_size) + step 
-            cur_step = cur_step // training_args.gradient_accumulation_steps
+            # cur_step = cur_step // training_args.gradient_accumulation_steps
 
             if cur_step % training_args.logging_steps == 0 and cur_step > 0:
                 # Save metrics
                 train_metric = unreplicate(train_metric)
                 train_time += time.time() - train_start
 
-                epochs.write(
-                    f"Step... ({cur_step} | Loss: {train_metric['loss'].mean()}, Learning Rate:"
-                    f" {train_metric['learning_rate'].mean()})"
-                )
+                # epochs.write(
+                #     f"Step... ({cur_step} | Loss: {train_metric['loss'].mean()}, Learning Rate:"
+                #     f" {train_metric['learning_rate'].mean()})"
+                # )
                 wandb.log({
-                    "train/loss": train_metric['loss'].mean(),
-                    "train/learning_rate": train_metric['learning_rate'].mean(),
+                    "train/loss": train_metric['loss'].mean().item(),
+                    "train/learning_rate": train_metric['learning_rate'].mean().item(),
                     "train/global_step": cur_step
                 })
 
@@ -852,6 +856,8 @@ def main():
             with open(path, "w") as f:
                 json.dump(eval_metrics, f, indent=4, sort_keys=True)
 
+    if wandb.run is not None and jax.process_index() == 0:
+        wandb.finish()
 
 if __name__ == "__main__":
     main()
