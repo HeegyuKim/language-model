@@ -9,6 +9,7 @@ from tokenizers import Tokenizer
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 from typing import List, Dict, Any
@@ -60,13 +61,16 @@ def main(config_name: str = "test.yaml"):
 
     callbacks = [
         checkpoint_callback,
+        TQDMProgressBar(refresh_rate=20)
     ]
 
     trainer = pl.Trainer(
         max_epochs=1,
         callbacks=callbacks,
         accelerator=args.accelerator,
-        devices=args.devices
+        devices=args.devices,
+        log_every_n_steps=500,
+        accumulate_grad_batches=args.get('accumulate_grad_batches', 1),
         )
     
     trainer.fit(module, dataloader)

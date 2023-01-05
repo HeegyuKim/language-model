@@ -3,8 +3,9 @@ project: gpt2
 
 run_name: test
 learning_rate: 5e-5
+num_epochs: 1
 batch_size: 1
-gradient_accumulation_size: 1
+accumulate_grad_batches: 32
 max_steps: 1000000
 save_steps: 50000
 block_size: 1024
