@@ -32,7 +32,7 @@ accelerator-type
 ## TPU-VM 에서 jax/flax 학습하기
 ```
 python3 -m pip install "jax[tpu]>=0.2.16" -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
-python3 -m pip install transformers datasets huggingface_hub evaluate accelerate optax flax
+python3 -m pip install transformers datasets huggingface_hub evaluate accelerate optax flax wandb
 
 export USE_TORCH=False
 
@@ -52,12 +52,37 @@ from transformers.testing_utils import CaptureLogger
 ## TPU-VM에서 Pytorch 학습하기
 WIP...
 ```
-export XRT_TPU_CONFIG="localservice;0;localhost:51011"
+export XRT_TPU_CONFIG="localservice;0;localhost:51011
 ```
 
+#### 1.10 버전 설치(기존 버전 제거하고 1.10 깔려면)
+```
+cd /usr/share/
+sudo git clone -b release/1.10 --recursive https://github.com/pytorch/pytorch
+cd pytorch/
+sudo git clone -b r1.10 --recursive https://github.com/pytorch/xla.git
+cd xla/
+yes | sudo pip3 uninstall torch_xla
+yes | sudo pip3 uninstall torch
+yes | sudo pip3 uninstall torch_vision
+sudo pip3 install torch==1.10.0
+sudo pip3 install torchvision==0.11.1
+sudo pip3 install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch_xla-1.10-cp38-cp38-linux_x86_64.whl
+sudo mv /usr/lib/libtpu.so /tmp
+sudo /snap/bin/gsutil cp gs://tpu-pytorch/v4_wheel/110/libtpu.so /lib/libtpu.so
+```
+
+<!-- unset LD_PRELOAD -->
+```
+pip3 install torch torchvision
+pip3 install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch_xla-1.13-cp38-cp38-linux_x86_64.whl
+sudo /snap/bin/gsutil cp gs://tpu-pytorch/v4_wheel/130/libtpu.so /lib/libtpu.so
+
+python3 -m pip install transformers pytorch_lightning omegaconf fire datasets
+```
 
 # TODO
-- [ ] wandb integration
-- [ ] gradient accumulation
-- [ ] resume training
-- [ ] CPU 에서 불러오고Inference
+- [x] wandb integration
+- [x] gradient accumulation
+- [ ] Flax resume training
+- [ ] Flax CPU Inference
