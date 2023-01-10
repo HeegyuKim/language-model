@@ -39,7 +39,7 @@ def main():
         )
 
     accelerator = Accelerator(
-        gradient_accumulation_steps=args.accumulate_grad_batches
+        # gradient_accumulation_steps=args.accumulate_grad_batches
     )
 
 
@@ -49,33 +49,33 @@ def main():
 
     global_step = 0
 
-    if accelerator.is_main_process:
-        wandb.init(project=args.project, name=args.run_name)
+    # if accelerator.is_main_process:
+    #     wandb.init(project=args.project, name=args.run_name)
 
     for epoch in tqdm(range(args.num_epochs), position=0):
         model.train()
         for step, batch in enumerate(tqdm(train_dataloader, disable=not accelerator.is_local_main_process, position=1, leave=False)):
             
-            with accelerator.accumulate(model):
-                ids = batch["input_ids"]
-                loss = model(input_ids=ids, labels=ids).loss
-                accelerator.backward(loss)
+            # with accelerator.accumulate(model):
+            ids = batch["input_ids"]
+            loss = model(input_ids=ids, labels=ids).loss
+            accelerator.backward(loss)
 
-                if accelerator.sync_gradients:
-                    accelerator.clip_grad_norm_(model.parameters(), 1.0)
+            # if accelerator.sync_gradients:
+            #     accelerator.clip_grad_norm_(model.parameters(), 1.0)
 
-                optimizer.step()
-                lr_scheduler.step()
-                optimizer.zero_grad()
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad()
 
-                if accelerator.is_main_process and step % args.logging_steps == 0:
-                    wandb.log({
-                        'global_step': global_step,
-                        'epoch': epoch + step / steps_per_epoch,
-                        'loss': loss.item()
-                    })
+            # if accelerator.is_main_process and step % args.logging_steps == 0:
+            #     print({
+            #         'global_step': global_step,
+            #         'epoch': epoch + step / steps_per_epoch,
+            #         'loss': loss.item()
+            #     })
 
-                global_step += 1
+            global_step += 1
 
         if accelerator.is_main_process:
             accelerator.wait_for_everyone()
