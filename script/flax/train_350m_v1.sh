@@ -1,7 +1,7 @@
 
 export WANDB_PROJECT="gpt2"
 
-RUN_NAME="gpt-j-350m-v1-lr3e-4-batch512-bf16-rev1"
+RUN_NAME="gpt-j-350m-v1-lr3e-4-batch512-bf16-rev2"
 
 
 python3 train_clm_flax_v2.py \
@@ -23,4 +23,4 @@ python3 train_clm_flax_v2.py \
     --overwrite_output_dir \
     --num_train_epochs="3" \
     --logging_steps="2500" \
-    --save_steps="150000"
+    --save_steps="500000"
