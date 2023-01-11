@@ -1,1 +1,1 @@
-heegyu/ajoublue-gpt2-base
+accelerate launch train_clm_hfacc.py
