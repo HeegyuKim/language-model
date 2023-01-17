@@ -14,7 +14,6 @@ import fire
 from datasets import disable_caching, load_dataset
 from accelerate import Accelerator
 from tqdm.auto import tqdm
-import comet_ml
 from accelerate.logging import get_logger
 import os
 import logging
@@ -31,7 +30,7 @@ def main():
             args[k] = v
 
     # dataset = load_dataset("json", data_dir=args.data_dir, split="train", cache_dir="/data/.cache").with_format("torch")
-    dataset = load_dataset("json", data_files=["/data/v1-vocab51k-block1024/heegyu__kowikitext.jsonl"], split="train", cache_dir="/data/.cache").with_format("torch")
+    dataset = load_dataset("json", data_files=["/data2/v1-vocab51k-block1024/heegyu__kowikitext.jsonl"], split="train", cache_dir="/data2/.cache").with_format("torch")
     print("data total", len(dataset), "blocks")
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
@@ -70,6 +69,9 @@ def main():
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO,
     )
+    if accelerator.is_main_process:
+        logger.info(args)
+
 
     for epoch in tqdm(range(args.num_epochs), position=0, disable=not accelerator.is_local_main_process):
         model.train()
@@ -79,10 +81,10 @@ def main():
             loss = model(input_ids=ids, labels=ids).loss / args.accumulate_grad_batches
             accelerator.backward(loss)
 
-            # if accelerator.sync_gradients:
-            #     accelerator.clip_grad_norm_(model.parameters(), 1.0)
-
             if (global_step + 1) % args.accumulate_grad_batches == 0:
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(model.parameters(), 1.0)
+
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
@@ -97,12 +99,14 @@ def main():
                         'train/loss': loss.item() * args.accumulate_grad_batches
                     }
                     logger.info(str(metrics))
-                    epoch_tqdm.set_description(f'loss: {loss.item()}')
-                
+                    epoch_tqdm.set_description(f'loss: {loss.item() * args.accumulate_grad_batches}')
+                    
             global_step += 1
 
         if accelerator.is_main_process:
-            accelerator.wait_for_everyone()
+            logger.info("wait for everyone")
             unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.save_pretrained(f"/data/checkpoint/{args.run_name}/{epoch + 1}")
+            unwrapped_model.save_pretrained(f"/data2/checkpoint/{args.run_name}/epoch-{epoch + 1}")
+
+        accelerator.wait_for_everyone()
     

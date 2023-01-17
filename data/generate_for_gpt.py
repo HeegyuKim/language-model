@@ -10,8 +10,8 @@ disable_caching()
 
 dataset_paths = [
     # For tiny
-    # "heegyu/kowikitext",
-    "heegyu/namuwiki-extracted",
+    "heegyu/kowikitext",
+    # "heegyu/namuwiki-extracted",
     # "heegyu/aihub_sns_dialog_gpt",
     # "heegyu/nikl_messenger_dialog_gpt",
     # "heegyu/aihub_spoken_2021",
@@ -20,7 +20,7 @@ dataset_paths = [
     # "heegyu/nikl_spoken",
     # "heegyu/nikl_written",
     # "heegyu/nia_web",
-    "heegyu/korean-petitions",
+    # "heegyu/korean-petitions",
     # "heegyu/nikl_daily_dialog_v1.2",
 
     # For base
@@ -41,7 +41,7 @@ def remove_speaker(x):
 
 class GPTBlockBuilder:
     def load_dataset(self, name):
-        ds = load_dataset(name, split="train", cache_dir="/data/.cache")
+        ds = load_dataset(name, split="train", cache_dir="/data2/.cache")
         name_vars = ["sentence", "dialog", "spoken", "document", "form", "content"]
 
         for var in name_vars:
@@ -94,5 +94,5 @@ if __name__ == "__main__":
     builder.main(
         tokenizer="heegyu/kogpt-j-base",
         block_size=1024,
-        output_dir="/data/v1-vocab51k-block1024"
+        output_dir="/data2/v1-vocab51k-block1024"
     )
