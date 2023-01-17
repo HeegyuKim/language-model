@@ -41,7 +41,7 @@ def remove_speaker(x):
 
 class GPTBlockBuilder:
     def load_dataset(self, name):
-        ds = load_dataset(name, split="train")
+        ds = load_dataset(name, split="train", cache_dir="/data/.cache")
         name_vars = ["sentence", "dialog", "spoken", "document", "form", "content"]
 
         for var in name_vars:
@@ -93,5 +93,6 @@ if __name__ == "__main__":
     # )
     builder.main(
         tokenizer="heegyu/kogpt-j-base",
-        block_size=1024
+        block_size=1024,
+        output_dir="/data/v1-vocab51k-block1024"
     )
