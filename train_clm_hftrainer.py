@@ -1,0 +1,406 @@
+#!/usr/bin/env python
+# coding=utf-8
+# Copyright 2020 The HuggingFace Inc. team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""
+Fine-tuning the library models for causal language modeling (GPT, GPT-2, CTRL, ...) on a text file or a dataset.
+Here is the full list of checkpoints on the hub that can be fine-tuned by this script:
+https://huggingface.co/models?filter=text-generation
+"""
+# You can also adapt this script on your own causal language modeling task. Pointers for this are left as comments.
+
+import logging
+import math
+import os
+import sys
+from dataclasses import dataclass, field
+from itertools import chain
+from typing import Optional
+
+import datasets
+import torch
+from torch.utils.data import Dataset
+from datasets import load_dataset
+
+import transformers
+from transformers import (
+    CONFIG_MAPPING,
+    MODEL_FOR_CAUSAL_LM_MAPPING,
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    HfArgumentParser,
+    Trainer,
+    TrainingArguments,
+    default_data_collator,
+    is_torch_tpu_available,
+    set_seed,
+)
+
+MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
+MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
+
+# @dataclass
+# class TrainingArguments:
+#     run_name: str = field(
+#         metadata={
+#             "help": "The run name for wandb."
+#         },
+#     )
+#     output_dir: str = field(
+#         metadata={
+#             "help": "The output directory where the model predictions and checkpoints will be written."
+#         },
+#     )
+#     overwrite_output_dir: bool = field(
+#         default=False,
+#         metadata={
+#             "help": (
+#                 "Overwrite the content of the output directory. "
+#                 "Use this to continue training if output_dir points to a checkpoint directory."
+#             )
+#         },
+#     )
+#     do_train: bool = field(default=False, metadata={"help": "Whether to run training."})
+#     do_eval: bool = field(
+#         default=False, metadata={"help": "Whether to run eval on the dev set."}
+#     )
+#     per_device_train_batch_size: int = field(
+#         default=8, metadata={"help": "Batch size per GPU/TPU core/CPU for training."}
+#     )
+#     per_device_eval_batch_size: int = field(
+#         default=8, metadata={"help": "Batch size per GPU/TPU core/CPU for evaluation."}
+#     )
+#     gradient_accumulation_steps: int = field(
+#         default=1, metadata={"help": "Gradient Accumulation Steps"}
+#     )
+#     learning_rate: float = field(
+#         default=5e-5, metadata={"help": "The initial learning rate for AdamW."}
+#     )
+#     weight_decay: float = field(
+#         default=0.0, metadata={"help": "Weight decay for AdamW if we apply some."}
+#     )
+#     adam_beta1: float = field(
+#         default=0.9, metadata={"help": "Beta1 for AdamW optimizer"}
+#     )
+#     adam_beta2: float = field(
+#         default=0.999, metadata={"help": "Beta2 for AdamW optimizer"}
+#     )
+#     adam_epsilon: float = field(
+#         default=1e-8, metadata={"help": "Epsilon for AdamW optimizer."}
+#     )
+#     adafactor: bool = field(
+#         default=False,
+#         metadata={"help": "Whether or not to replace AdamW by Adafactor."},
+#     )
+#     num_train_epochs: float = field(
+#         default=3.0, metadata={"help": "Total number of training epochs to perform."}
+#     )
+#     warmup_steps: int = field(
+#         default=0, metadata={"help": "Linear warmup over warmup_steps."}
+#     )
+#     logging_steps: int = field(
+#         default=500, metadata={"help": "Log every X updates steps."}
+#     )
+#     save_steps: int = field(
+#         default=500, metadata={"help": "Save checkpoint every X updates steps."}
+#     )
+#     eval_steps: int = field(
+#         default=None, metadata={"help": "Run an evaluation every X steps."}
+#     )
+#     seed: int = field(
+#         default=42,
+#         metadata={"help": "Random seed that will be set at the beginning of training."},
+#     )
+#     push_to_hub: bool = field(
+#         default=False,
+#         metadata={
+#             "help": "Whether or not to upload the trained model to the model hub after training."
+#         },
+#     )
+#     hub_model_id: str = field(
+#         default=None,
+#         metadata={
+#             "help": "The name of the repository to keep in sync with the local `output_dir`."
+#         },
+#     )
+#     hub_token: str = field(
+#         default=None, metadata={"help": "The token to use to push to the Model Hub."}
+#     )
+
+#     def __post_init__(self):
+#         if self.output_dir is not None:
+#             self.output_dir = os.path.expanduser(self.output_dir)
+
+#     def to_dict(self):
+#         """
+#         Serializes this instance while replace `Enum` by their values (for JSON serialization support). It obfuscates
+#         the token values by removing their value.
+#         """
+#         d = asdict(self)
+#         for k, v in d.items():
+#             if isinstance(v, Enum):
+#                 d[k] = v.value
+#             if isinstance(v, list) and len(v) > 0 and isinstance(v[0], Enum):
+#                 d[k] = [x.value for x in v]
+#             if k.endswith("_token"):
+#                 d[k] = f"<{k.upper()}>"
+#         return d
+
+
+@dataclass
+class ModelArguments:
+    """
+    Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
+    """
+
+    model_name_or_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The model checkpoint for weights initialization.Don't set if you want to train a model from scratch."
+            )
+        },
+    )
+    model_type: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "If training from scratch, pass a model type from the list: "
+            + ", ".join(MODEL_TYPES)
+        },
+    )
+    config_name: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Pretrained config name or path if not the same as model_name"
+        },
+    )
+    tokenizer_name: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Pretrained tokenizer name or path if not the same as model_name"
+        },
+    )
+    cache_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Where do you want to store the pretrained models downloaded from s3"
+        },
+    )
+    use_fast_tokenizer: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether to use one of the fast tokenizer (backed by the tokenizers library) or not."
+        },
+    )
+    dtype: Optional[str] = field(
+        default="float32",
+        metadata={
+            "help": (
+                "Floating-point format in which the model weights should be initialized and trained. Choose one of"
+                " `[float32, float16, bfloat16]`."
+            )
+        },
+    )
+    use_auth_token: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Will use the token generated when running `huggingface-cli login` (necessary to use this script "
+                "with private models)."
+            )
+        },
+    )
+
+
+@dataclass
+class DataTrainingArguments:
+    """
+    Arguments pertaining to what data we are going to input our model for training and eval.
+    """
+
+    dataset_name: Optional[str] = field(
+        default=None,
+        metadata={"help": "The name of the dataset to use (via the datasets library)."},
+    )
+    dataset_config_name: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The configuration name of the dataset to use (via the datasets library)."
+        },
+    )
+    train_file: Optional[str] = field(
+        default=None, metadata={"help": "The input training data file (a text file)."}
+    )
+    validation_file: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "An optional input evaluation data file to evaluate the perplexity on (a text file)."
+        },
+    )
+    max_train_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "For debugging purposes or quicker training, truncate the number of training examples to this "
+                "value if set."
+            )
+        },
+    )
+    max_eval_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "For debugging purposes or quicker training, truncate the number of evaluation examples to this "
+                "value if set."
+            )
+        },
+    )
+    overwrite_cache: bool = field(
+        default=False,
+        metadata={"help": "Overwrite the cached training and evaluation sets"},
+    )
+    validation_split_percentage: Optional[int] = field(
+        default=5,
+        metadata={
+            "help": "The percentage of the train set used as validation set in case there's no validation split"
+        },
+    )
+    block_size: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Optional input sequence length after tokenization. "
+                "The training dataset will be truncated in block of this size for training. "
+                "Default to the model max input length for single sentence inputs (take into account special tokens)."
+            )
+        },
+    )
+    overwrite_cache: bool = field(
+        default=False,
+        metadata={"help": "Overwrite the cached training and evaluation sets"},
+    )
+    preprocessing_num_workers: Optional[int] = field(
+        default=None,
+        metadata={"help": "The number of processes to use for the preprocessing."},
+    )
+    keep_linebreaks: bool = field(
+        default=True,
+        metadata={"help": "Whether to keep line breaks when using TXT files or not."},
+    )
+
+    def __post_init__(self):
+        if (
+            self.dataset_name is None
+            and self.train_file is None
+            and self.validation_file is None
+        ):
+            raise ValueError(
+                "Need either a dataset name or a training/validation file."
+            )
+        # else:
+        #     if self.train_file is not None:
+        #         extension = self.train_file.split(".")[-1]
+        #         assert extension in [
+        #             "csv",
+        #             "json",
+        #             "txt",
+        #             "jsonl"
+        #         ], "`train_file` should be a csv, a json or a txt file."
+        #     if self.validation_file is not None:
+        #         extension = self.validation_file.split(".")[-1]
+        #         assert extension in [
+        #             "csv",
+        #             "json",
+        #             "txt",
+        #             "jsonl"
+        #         ], "`validation_file` should be a csv, a json or a txt file."
+
+
+
+class CLMDataset(Dataset):
+
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, index):
+        x = self.dataset[index]
+        x['labels'] = x['input_ids']
+        return x    
+
+
+def transform_data(x):
+    x['labels'] = x['input_ids']
+    return x
+
+
+def main():
+    parser = HfArgumentParser(
+        (ModelArguments, DataTrainingArguments, TrainingArguments)
+    )
+    if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
+        # If we pass only one argument to the script and it's the path to a json file,
+        # let's parse it to get our arguments.
+        model_args, data_args, training_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
+    else:
+        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    data_files = {
+        "train": data_args.train_file
+    }
+
+    train_dataset = load_dataset(
+        "json",
+        data_files=data_files,
+        cache_dir=model_args.cache_dir,
+        split="train",
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
+    train_dataset = CLMDataset(train_dataset)
+    # train_dataset = train_dataset.with_format("torch")
+    # print(train_dataset[0]['labels'])
+    # return
+
+    # dataset = load_dataset("json", data_files=["/data/v1-vocab51k-block1024/heegyu__kowikitext.jsonl"], split="train", cache_dir="/data/.cache").with_format("torch")
+
+    print("data total", len(train_dataset), "blocks")
+    config = AutoConfig.from_pretrained(model_args.config_name)
+    model = AutoModelForCausalLM.from_config(config)
+    
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        # Data collator will default to DataCollatorWithPadding, so we change it.
+        data_collator=default_data_collator
+    )
+
+    # train_result = trainer.train(resume_from_checkpoint=checkpoint)
+    train_result = trainer.train()
+    trainer.save_model()  # Saves the tokenizer too for easy upload
+    trainer.save_state()
+
+
+def _mp_fn(index):
+    # For xla_spawn (TPUs)
+    main()
+
+
+if __name__ == "__main__":
+    main()
