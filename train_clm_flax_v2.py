@@ -388,7 +388,7 @@ def data_loader(
             batch = {k: np.array(v, dtype=np.int64) for k, v in batch.items()}
             batch["labels"] = batch["input_ids"]
             yield batch
-        except:
+        except Exception as e:
             print_exc()
             print(batch)
 
