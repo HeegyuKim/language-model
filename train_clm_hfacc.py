@@ -24,20 +24,19 @@ default_values = dict(
 )
 
 def main():
-    args = OmegaConf.load(f"config/ajoublue-gpt2-base.yaml")
+    args = OmegaConf.load(f"config/gpt-j-base-dialog.yaml")
     for k, v in default_values.items():
         if k not in args:
             args[k] = v
 
-    # dataset = load_dataset("json", data_dir=args.data_dir, split="train", cache_dir="/data/.cache").with_format("torch")
-    dataset = load_dataset("json", data_files=["/data2/v1-vocab51k-block1024/heegyu__kowikitext.jsonl"], split="train", cache_dir="/data2/.cache").with_format("torch")
+    dataset = load_dataset("json", data_dir=args.data_dir, split="train", cache_dir=args.cache_dir).with_format("torch")
+    # dataset = load_dataset("json", data_files=["/data2/v1-vocab51k-block1024/heegyu__kowikitext.jsonl"], split="train", cache_dir="/data2/.cache").with_format("torch")
     print("data total", len(dataset), "blocks")
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
 
     steps_per_epoch = len(dataset) // (args.batch_size * 8 * args.accumulate_grad_batches)
 
-    config = AutoConfig.from_pretrained(args.model_name)
-    model = AutoModelForCausalLM.from_config(config)
+    model = AutoModelForCausalLM.from_pretrained(args.model_name)
     optimizer = optim.AdamW(
         model.parameters(), 
         lr=args.learning_rate,
@@ -56,8 +55,8 @@ def main():
     accelerator = Accelerator()
     # accelerator.init_trackers(args.project, config=args)
 
-    model, optimizer, train_dataloader  = accelerator.prepare(
-        model, optimizer, dataloader
+    model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+        model, optimizer, dataloader, lr_scheduler
     )
 
     global_step = 0
@@ -95,10 +94,11 @@ def main():
                     metrics = {
                         'train/step': optimizer_step,
                         'train/epoch': epoch + optimizer_step / steps_per_epoch,
-                        'train/learning_rate': lr_scheduler._last_lr,
+                        'train/learning_rate': lr_scheduler.scheduler._last_lr,
                         'train/loss': loss.item() * args.accumulate_grad_batches
                     }
                     logger.info(str(metrics))
+                    print(metrics)
                     epoch_tqdm.set_description(f'loss: {loss.item() * args.accumulate_grad_batches}')
                     
             global_step += 1
@@ -106,7 +106,7 @@ def main():
         if accelerator.is_main_process:
             logger.info("wait for everyone")
             unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.save_pretrained(f"/data2/checkpoint/{args.run_name}/epoch-{epoch + 1}")
+            unwrapped_model.save_pretrained(f"{args.output_dir}/{args.run_name}/epoch-{epoch + 1}")
 
         accelerator.wait_for_everyone()
     
