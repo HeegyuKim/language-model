@@ -34,7 +34,7 @@ def main():
     print("data total", len(dataset), "blocks")
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    steps_per_epoch = len(dataset) // args.batch_size // 8 // args.accumulate_grad_batches
+    steps_per_epoch = len(dataset) // (args.batch_size * 8 * args.accumulate_grad_batches)
 
     config = AutoConfig.from_pretrained(args.model_name)
     model = AutoModelForCausalLM.from_config(config)
