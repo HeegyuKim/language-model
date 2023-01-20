@@ -10,7 +10,7 @@ block_size: 1024
 logging_steps: 10
 
 model_name: heegyu/kogpt-j-base
-revision: rev3-step200k
+revision: rev3-step400k
 from_flax: true
 data_dir: /data2/dialog-v1-vocab51k-block1024/train
 eval_data_dir: /data2/dialog-v1-vocab51k-block1024/test

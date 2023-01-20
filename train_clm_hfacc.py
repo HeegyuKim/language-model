@@ -46,7 +46,7 @@ def evaluate(accelerator, model, dataloader, global_step):
         print("Eval_mean_loss", eval_mean_loss)
         accelerator.log({
             'eval/loss': eval_mean_loss
-        }, step=global_step)
+        })
 
     return eval_mean_loss
 
@@ -72,7 +72,7 @@ def main():
         eval_dataloader = None
 
 
-    steps_per_epoch = len(train_dataset) // (args.batch_size * 8 * args.accumulate_grad_batches)
+    steps_per_epoch = len(train_dataset) // (args.batch_size * args.accumulate_grad_batches)
 
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
@@ -94,17 +94,12 @@ def main():
         final_div_factor=10
         )
 
+    os.environ["WANDB_NAME"] = args.run_name
     accelerator = Accelerator(log_with="wandb")
     accelerator.init_trackers(
         args.project, 
-        config=args
-    )
-    # ,
-    #     init_kwargs={
-    #         "wandb": {
-    #             "entity": args.run_name,
-    #         }
-    #     })
+        config=args,
+        )
 
     model, optimizer, train_dataloader, lr_scheduler, eval_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader, lr_scheduler, eval_dataloader
@@ -112,15 +107,6 @@ def main():
 
     global_step = 0
     optimizer_step = 0
-
-    logger = get_logger(__name__)
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
-    )
-    if accelerator.is_main_process:
-        logger.info(args)
 
 
     for epoch in tqdm(range(args.num_epochs), position=0, disable=not accelerator.is_local_main_process):
@@ -144,23 +130,23 @@ def main():
 
                 if accelerator.is_main_process and optimizer_step % args.logging_steps == 0:
                     metrics = {
+                        'optimizer_step': optimizer_step,
                         'train/epoch': optimizer_step / steps_per_epoch,
-                        'train/learning_rate': lr_scheduler.scheduler._last_lr,
+                        'train/learning_rate': lr_scheduler.scheduler._last_lr[0],
                         'train/loss': loss.item() * args.accumulate_grad_batches
                     }
-                    accelerator.log(metrics, step=optimizer_step)
+                    accelerator.log(metrics)
                     epoch_tqdm.set_description(f'loss: {loss.item() * args.accumulate_grad_batches}')
                     
             global_step += 1
 
         if accelerator.is_main_process:
-            logger.info("wait for everyone")
             unwrapped_model = accelerator.unwrap_model(model)
             unwrapped_model.save_pretrained(f"{args.output_dir}/{args.run_name}/epoch-{epoch + 1}")
 
         accelerator.wait_for_everyone()
 
         if eval_dataloader is not None:
-            evaluate(accelerator, model, eval_dataloader, global_step)
+            evaluate(accelerator, model, eval_dataloader, optimizer_step)
 
     accelerator.end_training()
