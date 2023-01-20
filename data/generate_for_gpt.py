@@ -30,13 +30,19 @@ dataset_paths = [
 ]
 
 # for dialog
+# dataset_paths = [
+#     "heegyu/nikl_daily_dialog_2021_gpt",
+#     "heegyu/nikl_online_conv_2022_gpt",
+#     "heegyu/aihub_daily_conv_2022_gpt",
+#     "heegyu/aihub_twitter_dialog_gpt",
+#     "heegyu/aihub_emotional_dialog_gpt",
+# ]
+# split="train"
+
 dataset_paths = [
-    "heegyu/nikl_daily_dialog_2021_gpt",
-    "heegyu/nikl_online_conv_2022_gpt",
     "heegyu/aihub_daily_conv_2022_gpt",
-    "heegyu/aihub_twitter_dialog_gpt",
-    "heegyu/aihub_emotional_dialog_gpt",
 ]
+split="test"
 
 
 # True 면, 데이터 전처리 할 때 speaker id 안지운다
@@ -54,7 +60,7 @@ def remove_speaker(x):
 
 class GPTBlockBuilder:
     def load_dataset(self, name, cache_dir):
-        ds = load_dataset(name, split="train", cache_dir=cache_dir)
+        ds = load_dataset(name, split=split, cache_dir=cache_dir)
         name_vars = ["sentence", "dialog", "spoken", "document", "form", "content"]
 
         for var in name_vars:
@@ -115,6 +121,6 @@ if __name__ == "__main__":
     builder.main(
         tokenizer="heegyu/kogpt-j-base",
         block_size=1024,
-        output_dir="/data2/dialog-v1-vocab51k-block1024",
+        output_dir="/data2/dialog-v1-vocab51k-block1024/test",
         cache_dir="/data2/.cache"
     )
