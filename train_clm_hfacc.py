@@ -1,11 +1,11 @@
 # Pytorch Training using huggingface accelerate
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from tokenizers import Tokenizer
 
 from typing import List, Dict, Any
@@ -29,7 +29,7 @@ default_values = dict(
 
 
 @torch.no_grad()
-def evaluate(accelerator, model, dataloader):
+def evaluate(accelerator, model, dataloader, global_step):
     model.eval()
     epoch_tqdm = tqdm(dataloader, disable=not accelerator.is_local_main_process, position=1, leave=False)
     losses = []
@@ -44,7 +44,10 @@ def evaluate(accelerator, model, dataloader):
 
     if accelerator.is_local_main_process:
         print("Eval_mean_loss", eval_mean_loss)
-        
+        accelerator.log({
+            'eval/loss': eval_mean_loss
+        }, step=global_step)
+
     return eval_mean_loss
 
 
@@ -91,8 +94,17 @@ def main():
         final_div_factor=10
         )
 
-    accelerator = Accelerator()
-    # accelerator.init_trackers(args.project, config=args)
+    accelerator = Accelerator(log_with="wandb")
+    accelerator.init_trackers(
+        args.project, 
+        config=args
+    )
+    # ,
+    #     init_kwargs={
+    #         "wandb": {
+    #             "entity": args.run_name,
+    #         }
+    #     })
 
     model, optimizer, train_dataloader, lr_scheduler, eval_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader, lr_scheduler, eval_dataloader
@@ -114,40 +126,41 @@ def main():
     for epoch in tqdm(range(args.num_epochs), position=0, disable=not accelerator.is_local_main_process):
         model.train()
         epoch_tqdm = tqdm(train_dataloader, disable=not accelerator.is_local_main_process, position=1, leave=False)
-        # for step, batch in enumerate(epoch_tqdm):
-        #     ids = batch["input_ids"]
-        #     loss = model(input_ids=ids, labels=ids).loss / args.accumulate_grad_batches
-        #     accelerator.backward(loss)
+        
+        for step, batch in enumerate(epoch_tqdm):
+            ids = batch["input_ids"]
+            loss = model(input_ids=ids, labels=ids).loss / args.accumulate_grad_batches
+            accelerator.backward(loss)
 
-        #     if (global_step + 1) % args.accumulate_grad_batches == 0:
-        #         if accelerator.sync_gradients:
-        #             accelerator.clip_grad_norm_(model.parameters(), 1.0)
+            if (global_step + 1) % args.accumulate_grad_batches == 0:
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(model.parameters(), 1.0)
 
-        #         optimizer.step()
-        #         lr_scheduler.step()
-        #         optimizer.zero_grad()
+                optimizer.step()
+                lr_scheduler.step()
+                optimizer.zero_grad()
                 
-        #         optimizer_step += 1
+                optimizer_step += 1
 
-        #         if accelerator.is_main_process and optimizer_step % args.logging_steps == 0:
-        #             metrics = {
-        #                 'train/step': optimizer_step,
-        #                 'train/epoch': optimizer_step / steps_per_epoch,
-        #                 'train/learning_rate': lr_scheduler.scheduler._last_lr,
-        #                 'train/loss': loss.item() * args.accumulate_grad_batches
-        #             }
-        #             logger.info(str(metrics))
-        #             print(metrics)
-        #             epoch_tqdm.set_description(f'loss: {loss.item() * args.accumulate_grad_batches}')
+                if accelerator.is_main_process and optimizer_step % args.logging_steps == 0:
+                    metrics = {
+                        'train/epoch': optimizer_step / steps_per_epoch,
+                        'train/learning_rate': lr_scheduler.scheduler._last_lr,
+                        'train/loss': loss.item() * args.accumulate_grad_batches
+                    }
+                    accelerator.log(metrics, step=optimizer_step)
+                    epoch_tqdm.set_description(f'loss: {loss.item() * args.accumulate_grad_batches}')
                     
-        #     global_step += 1
+            global_step += 1
 
-        # if accelerator.is_main_process:
-        #     logger.info("wait for everyone")
-        #     unwrapped_model = accelerator.unwrap_model(model)
-        #     unwrapped_model.save_pretrained(f"{args.output_dir}/{args.run_name}/epoch-{epoch + 1}")
+        if accelerator.is_main_process:
+            logger.info("wait for everyone")
+            unwrapped_model = accelerator.unwrap_model(model)
+            unwrapped_model.save_pretrained(f"{args.output_dir}/{args.run_name}/epoch-{epoch + 1}")
 
-        # accelerator.wait_for_everyone()
+        accelerator.wait_for_everyone()
 
         if eval_dataloader is not None:
-            evaluate(accelerator, model, eval_dataloader)
+            evaluate(accelerator, model, eval_dataloader, global_step)
+
+    accelerator.end_training()

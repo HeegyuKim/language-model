@@ -1,5 +1,5 @@
 logger: wandb
-project: gpt2
+project: dialog
 
 run_name: gpt-j-base-dialog
 learning_rate: 3e-4
