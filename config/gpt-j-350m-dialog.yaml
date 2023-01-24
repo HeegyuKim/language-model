@@ -1,0 +1,19 @@
+logger: wandb
+project: gpt2
+
+run_name: gpt-j-350m-dialog
+learning_rate: 3e-4
+num_epochs: 10
+batch_size: 1
+accumulate_grad_batches: 8
+block_size: 1024
+logging_steps: 10
+
+model_name: heegyu/kogpt-j-350m
+data_dir: /data2/dialog-v1-vocab51k-block1024
+cache_dir: /data2/.cache
+output_dir: /data2/checkpoint
+accelerator: tpu
+devices: 8
+# accelerator: cpu
+# devices: 1

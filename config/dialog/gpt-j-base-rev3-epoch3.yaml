@@ -1,0 +1,18 @@
+logger: wandb
+project: dialog
+
+run_name: gpt-j-base-dialog
+learning_rate: 6e-4
+num_epochs: 10
+batch_size: 4
+accumulate_grad_batches: 2
+block_size: 1024
+logging_steps: 10
+
+model_name: heegyu/kogpt-j-base
+revision: master
+from_flax: true
+data_dir: /data2/dialog-v1-vocab51k-block1024/train
+eval_data_dir: /data2/dialog-v1-vocab51k-block1024/test
+cache_dir: /data2/.cache
+output_dir: /data2/checkpoint

@@ -3,13 +3,14 @@ project: gpt2
 
 run_name: ajoublue-gpt2-base
 learning_rate: 6e-4
-num_epochs: 3
+num_epochs: 30
 batch_size: 4
-accumulate_grad_batches: 64
+accumulate_grad_batches: 16
 block_size: 1024
-logging_steps: 2500
+logging_steps: 1
 
-model_name: heegyu/ajoublue-gpt2-base
+# model_name: heegyu/ajoublue-gpt2-base
+model_name: heegyu/kogpt-j-base
 data_dir: /data/v1-vocab51k-block1024
 accelerator: tpu
 devices: 8
