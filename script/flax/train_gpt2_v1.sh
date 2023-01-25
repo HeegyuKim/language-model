@@ -2,14 +2,14 @@
 
 export WANDB_PROJECT="gpt2"
 
-RUN_NAME="gpt-j-base-v1-lr6e-4-batch4-rev3"
+RUN_NAME="ajoublue-gpt2-base-v1-lr6e-4-batch4-rev3"
 
 
 python3 train_clm_flax_v2.py \
     --run_name=$RUN_NAME \
     --output_dir="checkpoint/$RUN_NAME" \
-    --tokenizer_name="heegyu/kogpt-j-base" \
-    --config_name="heegyu/kogpt-j-base" \
+    --tokenizer_name="heegyu/ajoublue-gpt2-base" \
+    --config_name="heegyu/ajoublue-gpt2-base" \
     --train_file="/data/v1-vocab51k-block1024/*.jsonl" \
     --cache_dir="/data/.cache/" \
     --do_train \
