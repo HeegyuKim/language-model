@@ -11,7 +11,7 @@ python3 train_clm_hftrainer.py \
     --output_dir="checkpoint/$RUN_NAME" \
     --tokenizer_name="heegyu/kogpt-j-base" \
     --config_name="heegyu/kogpt-j-base" \
-    --train_file="/data/v1-vocab51k-block1024/heegyu__kowikitext.jsonl" \
+    --train_file="/data2/v1-vocab51k-block1024/heegyu__kowikitext.jsonl" \
     --cache_dir="/data/.cache/" \
     --do_train \
     --block_size="1024" \

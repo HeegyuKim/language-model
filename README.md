@@ -1,6 +1,21 @@
 # language-model
+TPU에서 한국어 언어모델을 학습하기 위한 코드(jax/flax, pytorch)
 
-## TPU-VM 쓰려면
+### 학습된 모델들
+Name | Model | Size | Hidden | # Layers | # Heads | max_seq_len
+--- | --- | --- | --- | --- | --- | --- 
+[kogpt-j-base](https://huggingface.co/heegyu/kogpt-j-base) | GPT-J | 163M | 768 | 12 | 12 | 1024
+[kogpt-j-base-24L](https://huggingface.co/heegyu/kogpt-j-base-24L) | GPT-J  | 237M | 768 | 24 | 12 | 1024
+[kogpt-j-350m](https://huggingface.co/heegyu/kogpt-j-350m) | GPT-J | 350M | 1024 | 20 | 16 | 1024
+
+이 프로젝트는 아주대학교 파란학기제와 Google TPU Research Cloud의 지원을 받아서 진행되고 있습니다.
+
+### TODO
+- GPT2 125M, 210M(base-24L), 355M
+- BART-large
+
+
+## TPU-VM Setup
 클라우드 쉘에서 us-central1-f zone v2-8 잡는 명령어
 ```
 export PROJECT_ID=?
@@ -29,7 +44,8 @@ accelerator-type
 - v3-8: 맨날 남는 거 없다고 실패함 ㅂㄷㅂㄷ zone europe-west4-a 만 가능
 
 
-## TPU-VM 에서 jax/flax 학습하기
+### Jax/Flax VM setup
+tf vm 으로 한 다음 아래 명령어 쳐서 설치하면 됩니다.
 ```
 python3 -m pip install "jax[tpu]>=0.2.16" -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
 python3 -m pip install transformers datasets huggingface_hub evaluate accelerate optax flax wandb
@@ -49,40 +65,22 @@ import transformers
 from transformers.testing_utils import CaptureLogger
 ```
 
-## TPU-VM에서 Pytorch 학습하기
-WIP...
+### Pytorch VM Setup
 ```
-export XRT_TPU_CONFIG="localservice;0;localhost:51011
+# .bashrc에다가 넣어도 안되고 매번 해줘야한다 이유가 뭘까..
+export XRT_TPU_CONFIG="localservice;0;localhost:51011"
+export USE_Torch=True
+
+pip3 install transformers wandb datasets tokenizers accelerate hydra-core
 ```
 
-#### 1.10 버전 설치(기존 버전 제거하고 1.10 깔려면)
-```
-cd /usr/share/
-sudo git clone -b release/1.10 --recursive https://github.com/pytorch/pytorch
-cd pytorch/
-sudo git clone -b r1.10 --recursive https://github.com/pytorch/xla.git
-cd xla/
-yes | sudo pip3 uninstall torch_xla
-yes | sudo pip3 uninstall torch
-yes | sudo pip3 uninstall torch_vision
-sudo pip3 install torch==1.10.0
-sudo pip3 install torchvision==0.11.1
-sudo pip3 install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch_xla-1.10-cp38-cp38-linux_x86_64.whl
-sudo mv /usr/lib/libtpu.so /tmp
-sudo /snap/bin/gsutil cp gs://tpu-pytorch/v4_wheel/110/libtpu.so /lib/libtpu.so
-```
-
-<!-- unset LD_PRELOAD -->
-```
-pip3 install torch torchvision
-pip3 install https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch_xla-1.13-cp38-cp38-linux_x86_64.whl
-sudo /snap/bin/gsutil cp gs://tpu-pytorch/v4_wheel/130/libtpu.so /lib/libtpu.so
-
-python3 -m pip install transformers pytorch_lightning omegaconf fire datasets
-```
+## 학습 방법(GPT)
+1. data/generate_for_gpt.py를 실행해서 GPT 학습용 데이터를 tokenizer로 인코딩한 다음 packing한다. 코드 안에서 어떤 huggingface dataset에서 생성할건지 지정한다.
+2. packing된 데이터를 불러와서 학습을 진행한다. script/flax/ 안에 있는 shell script 참고
 
 # TODO
-- [x] wandb integration
-- [x] gradient accumulation
+- [x] Flax wandb integration
+- [x] Flax gradient accumulation
 - [ ] Flax resume training
 - [ ] Flax CPU Inference
+- [ ] Model Parallel
