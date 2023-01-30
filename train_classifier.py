@@ -3,6 +3,7 @@ from transformers import (
     HfArgumentParser,
     DataCollatorForSeq2Seq,
     DataCollatorWithPadding,
+    set_seed
 )
 from utils.collator import SequenceClassificationCollator
 from utils.arguments import TrainingArguments, DataTrainingArguments, ModelArguments
@@ -22,12 +23,11 @@ from accelerate import Accelerator
 from tqdm.auto import tqdm
 from accelerate.logging import get_logger
 import os
-import logging
-import argparse
+import evaluate
+from pprint import pprint
 
 
-default_values = dict(accumulate_grad_batches=1, eval_batch_size=1, from_flax=False)
-
+eval_accuracy = evaluate.load("accuracy")
 
 def train(
     args, accelerator, model, optimizer, lr_scheduler, train_dataloader, eval_dataloader
@@ -78,19 +78,36 @@ def train(
                     f"loss: {loss.item() * args.gradient_accumulation_steps}"
                 )
 
+                if (
+                    args.eval_strategy == 'steps'
+                    and optimizer_step % args.eval_steps == 0
+                ):
+                    evaluate(accelerator, model, eval_dataloader)
+
             global_step += 1
 
-        if accelerator.is_main_process:
-            unwrapped_model = accelerator.unwrap_model(model)
-            unwrapped_model.save_pretrained(
-                f"{args.output_dir}/{args.run_name}/epoch-{epoch + 1}"
-            )
+        if args.save_strategy == "epoch":
+            if accelerator.is_main_process:
+                unwrapped_model = accelerator.unwrap_model(model)
+                unwrapped_model.save_pretrained(
+                    f"{args.output_dir}/{args.run_name}/epoch-{epoch + 1}"
+                )
 
-        accelerator.wait_for_everyone()
+            accelerator.wait_for_everyone()
 
-        if eval_dataloader is not None:
+        if eval_dataloader is not None and args.eval_strategy == 'epoch':
             evaluate(accelerator, model, eval_dataloader)
 
+
+def collate_dictlist(dl):
+    from collections import defaultdict
+    out = defaultdict(list)
+
+    for d in dl:
+        for k, v in d.items():
+            out[k].append(v)
+    
+    return out
 
 @torch.no_grad()
 def evaluate(accelerator, model, dataloader):
@@ -101,21 +118,34 @@ def evaluate(accelerator, model, dataloader):
         position=1,
         leave=False,
     )
-    losses = []
+    step_outputs = []
     for step, batch in enumerate(epoch_tqdm):
-        loss = model(**batch).loss
-        losses.append(loss)
+        out = model(**batch)
+        loss, logits = out.loss, out.logits
 
-    dist_loss = torch.stack(losses).mean()
-    all_losses = accelerator.gather_for_metrics(dist_loss)
-    eval_mean_loss = all_losses.mean().item()
+        step_outputs.append({
+            'loss': loss,
+            'logits': logits,
+            'labels': batch['labels']
+        })
+
+    eval_outputs = accelerator.gather_for_metrics(step_outputs)
+    # eval_mean_loss = all_losses.mean().item()
 
     if accelerator.is_local_main_process:
-        print("Eval_mean_loss", eval_mean_loss)
-        accelerator.log({"eval/loss": eval_mean_loss})
+        eval_outputs = collate_dictlist(eval_outputs)
+        preds = torch.stack(eval_outputs['logits']).view(-1, 2).argmax(-1)
+        labels = torch.stack(eval_outputs['labels']).view(-1)
+        eval_mean_loss = torch.stack(eval_outputs['loss']).mean().item()
+        eval_results = {
+            "eval/loss": eval_mean_loss,
+            "eval/accuracy": eval_accuracy.compute(predictions=preds, references=labels)['accuracy']
+        }
+        pprint("evaluation result")
+        pprint(eval_results)
+        accelerator.log(eval_results)
 
     model.train()
-    return eval_mean_loss
 
 
 def main():
@@ -124,6 +154,8 @@ def main():
     )
     training_args, data_args, model_args = parser.parse_args_into_dataclasses()
     args = parser.parse_args()
+
+    set_seed(args.seed)
 
     os.environ["WANDB_NAME"] = args.run_name
     accelerator = Accelerator(log_with="wandb")
@@ -138,7 +170,7 @@ def main():
     tokenizer = model_args.get_tokenizer()
 
     def encode_data(x):
-        ids = tokenizer.encode(x["document"], truncation=True, max_length=64)
+        ids = tokenizer.encode(x["document"], truncation=True, max_length=args.max_sequence_length)
         out = {"input_ids": ids, "attention_mask": [1] * len(ids)}
         out["label"] = x["label"]
         return out
@@ -150,7 +182,7 @@ def main():
 
     collator = SequenceClassificationCollator(
         tokenizer=tokenizer,
-        max_length=64,
+        max_length=args.max_sequence_length,
         pad_to_multiple_of=8,
         padding="max_length",
         return_tensors="pt",

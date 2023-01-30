@@ -25,5 +25,8 @@ class BaseTask:
         """
         pass
 
-    def aggregate_evaluation(self, results: List[Dict]):
+    def collate_evaluation(self, results: List[Dict]):
+        """
+            return dict(metric)
+        """
         pass

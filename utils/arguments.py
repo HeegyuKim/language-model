@@ -76,11 +76,23 @@ class TrainingArguments:
     logging_steps: int = field(
         default=500, metadata={"help": "Log every X updates steps."}
     )
+
     save_steps: int = field(
         default=500, metadata={"help": "Save checkpoint every X updates steps."}
     )
-    eval_steps: int = field(
+    save_strategy: Optional[str] = field(
+        default="epoch", metadata={
+            "help": "evaluation strategy. one of 'steps', 'epoch', 'no'"
+            }
+    )
+
+    eval_steps: Optional[int] = field(
         default=None, metadata={"help": "Run an evaluation every X steps."}
+    )
+    eval_strategy: Optional[str] = field(
+        default="epoch", metadata={
+            "help": "evaluation strategy. one of 'steps', 'epoch', 'no'"
+            }
     )
     seed: int = field(
         default=42,
