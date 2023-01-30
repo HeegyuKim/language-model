@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 from tokenizers import Tokenizer
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from omegaconf import OmegaConf
 import fire
 from datasets import disable_caching, load_dataset
