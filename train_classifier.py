@@ -61,7 +61,6 @@ def train(
                 lr_scheduler.step()
                 optimizer.zero_grad()
 
-                optimizer_step += 1
 
                 if (
                     accelerator.is_main_process
@@ -74,6 +73,7 @@ def train(
                     }
                     accelerator.log(metrics)
 
+                optimizer_step += 1
                 epoch_tqdm.set_description(
                     f"loss: {loss.item() * args.gradient_accumulation_steps}"
                 )
@@ -168,6 +168,8 @@ def main():
 
     model = model_args.get_model()
     tokenizer = model_args.get_tokenizer()
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
     def encode_data(x):
         ids = tokenizer.encode(x["document"], truncation=True, max_length=args.max_sequence_length)
@@ -209,7 +211,6 @@ def main():
     steps_per_epoch = len(dataset["train"]) // (
         args.per_device_train_batch_size
         * args.gradient_accumulation_steps
-        * args.num_procs
     )
 
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
