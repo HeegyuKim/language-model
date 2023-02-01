@@ -1,5 +1,4 @@
 from typing import List, Dict
-from .base import BaseTask
 
 import torch
 import evaluate
@@ -35,7 +34,7 @@ class DirectorHead(nn.Module):
         attention_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
-        input_ids: (bs, seq, hidden)
+        last_hidden_states: (bs, seq, hidden)
         attention_masks: (bs, seq)
         class_labels: (bs, )
         """
@@ -45,10 +44,10 @@ class DirectorHead(nn.Module):
 
         if class_labels is not None:
             cls_logits = out_cls_logits[:, :-1, :]
-            labels = labels[:, :-1]
+            labels = labels[:, 1:]
 
             cls_logits = cls_logits.gather(-1, labels.masked_fill(labels < 0, 0).unsqueeze(-1))  # (bs, seq, 1)
-            class_prob = class_labels.repeat(1, cls_logits.shape[1])  # (bs, seq)
+            class_prob = class_labels.unsqueeze(1).repeat(1, cls_logits.shape[1])  # (bs, seq)
             loss = F.binary_cross_entropy(cls_logits.squeeze(-1), class_prob.float(), reduction="none")
 
             if attention_mask is not None:

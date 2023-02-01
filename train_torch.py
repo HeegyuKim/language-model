@@ -19,9 +19,12 @@ import evaluate
 from pprint import pprint
 
 from transformers import HfArgumentParser
-from task import nsmc
+from task import nsmc, director
 
-TASKS = {"nsmc": nsmc.NSMCTask}
+TASKS = {
+    "nsmc": nsmc.NSMCTask,
+    "director": director.DirectorTask
+    }
 
 
 def main():

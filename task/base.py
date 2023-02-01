@@ -18,11 +18,12 @@ import os
 import evaluate
 from pprint import pprint
 from transformers import AutoModelForSequenceClassification, AutoModelForCausalLM, AutoConfig
-
+from .model.director import DirectorModel
 
 MODEL_TYPES = {
     "sequence-classification": AutoModelForSequenceClassification,
     "causal-lm": AutoModelForCausalLM,
+    "director": DirectorModel
 }
 
 
@@ -178,7 +179,12 @@ class BaseTask:
             )
 
             for step, batch in enumerate(epoch_tqdm):
-                loss = self.training_step(batch) / self.training_args.gradient_accumulation_steps
+                step_output = self.training_step(batch)
+                if torch.is_tensor(step_output):
+                    loss = step_output
+                else:
+                    loss = step_output['loss']
+                loss = loss / self.training_args.gradient_accumulation_steps
                 self.accelerator.backward(loss)
 
                 if (global_step + 1) % self.training_args.gradient_accumulation_steps == 0:
@@ -195,11 +201,10 @@ class BaseTask:
                         self.accelerator.is_main_process
                         and optimizer_step % self.training_args.logging_steps == 0
                     ):
-                        metrics = {
-                            "optimizer_step": optimizer_step,
-                            "train/learning_rate": self.lr_scheduler.scheduler._last_lr[0],
-                            "train/loss": loss.item() * self.training_args.gradient_accumulation_steps,
-                        }
+                        metrics = {f"train/{k}": v.item() for k, v in step_output.items()}
+                        metrics["optimizer_step"] = optimizer_step
+                        metrics["train/learning_rate"] = self.lr_scheduler.scheduler._last_lr[0]
+                        metrics["train/loss"] = loss.item() * self.training_args.gradient_accumulation_steps
                         self.accelerator.log(metrics)
 
                     epoch_tqdm.set_description(
@@ -217,16 +222,20 @@ class BaseTask:
 
             if self.training_args.save_strategy == "epoch":
                 if self.accelerator.is_main_process:
-                    self.save_model(epoch, optimizer_step)
+                    self.save_model(f"epoch-{epoch}")
                 self.accelerator.wait_for_everyone()
 
             if self.training_args.do_eval and self.training_args.eval_strategy == "epoch":
                 self.evaluate(epoch, optimizer_step)
 
-    def save_model(self, epoch, optimizer_step):
+        if self.training_args.save_strategy == "last":
+            if self.accelerator.is_main_process:
+                self.save_model(f"epoch-{epoch}-last")
+            self.accelerator.wait_for_everyone()
+    def save_model(self, name):
         unwrapped_model = self.accelerator.unwrap_model(self.model)
         unwrapped_model.save_pretrained(
-            f"{self.training_args.output_dir}/{self.training_args.run_name}/epoch-{epoch + 1}"
+            f"{self.training_args.output_dir}/{self.training_args.run_name}/{name}"
         )
 
     @torch.no_grad()

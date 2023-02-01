@@ -41,14 +41,14 @@ class DirectorCollator(object):
         
         del batch['class_labels']
         batch['class_labels'] = class_labels
-
+        batch['labels'] = batch['input_ids']
         return batch
 
 
 class DirectorTask(BaseTask):
     
     def prepare_dataset(self):
-        self.dataset = load_dataset("hate_speech18").train_test_split(0.1)
+        self.dataset = load_dataset("hate_speech18", split="train").train_test_split(0.1, seed=42)
         
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -67,7 +67,7 @@ class DirectorTask(BaseTask):
         ids = self.tokenizer.encode(
             x["text"], truncation=True, max_length=self.model_args.max_sequence_length
         )
-        out = {"input_ids": ids, "attention_mask": [1] * len(ids), "labels": ids}
+        out = {"input_ids": ids, "attention_mask": [1] * len(ids)}
         out["class_labels"] = x["label"]
         return out
         
@@ -82,7 +82,12 @@ class DirectorTask(BaseTask):
         )
 
     def training_step(self, batch):
-        return self.model(**batch).loss
+        out = self.model(**batch)
+
+        return {
+            'loss': out.class_loss,
+            'total_loss': out.loss
+        }
 
     def evaluation_step(self, batch):
         out = self.model(**batch)
@@ -94,12 +99,29 @@ class DirectorTask(BaseTask):
 
     def collate_evaluation(self, results: List[Dict]):
         eval_mean_loss = torch.stack(results['loss']).mean().item()
+        eval_mean_class_loss = torch.stack(results['class_loss']).mean().item()
         eval_results = {
             "loss": eval_mean_loss,
+            "class_loss": eval_mean_class_loss
         }
         pprint("evaluation result")
         pprint(eval_results)
+
+        self.test_generation()
         return eval_results
 
+    def test_generation(self):        
+        model = self.accelerator.unwrap_model(self.model)
+        device = next(model.parameters()).device
+        model = model.cpu().eval()
 
+        prompt = "this is really "
+        prompt = self.tokenizer.encode(prompt, return_tensors="pt")
 
+        sequences = model.generate(prompt, max_new_tokens=64, do_sample=True, num_return_sequences=5, gamma=15)
+        sequences = self.tokenizer.batch_decode(sequences)
+
+        print("test generations")
+        pprint(sequences)
+
+        model.to(device)
