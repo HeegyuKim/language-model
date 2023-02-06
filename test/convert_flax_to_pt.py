@@ -1,8 +1,8 @@
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, GPT2LMHeadModel, GPTJForCausalLM
 
-path = "../huggingface/kogpt-j-350m/"
+path = "../../huggingface/kogpt-j-350m/"
 
-model = AutoModelForCausalLM.from_pretrained(
+model = GPTJForCausalLM.from_pretrained(
     path,
     from_flax=True
 )
