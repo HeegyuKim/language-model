@@ -131,7 +131,7 @@ def main():
                 if accelerator.is_main_process and optimizer_step % args.logging_steps == 0:
                     metrics = {
                         'optimizer_step': optimizer_step,
-                        'train/epoch': optimizer_step / steps_per_epoch,
+                        'train/epoch': optimizer_step / steps_per_epoch * 8,
                         'train/learning_rate': lr_scheduler.scheduler._last_lr[0],
                         'train/loss': loss.item() * args.accumulate_grad_batches
                     }

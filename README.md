@@ -74,6 +74,17 @@ export USE_Torch=True
 pip3 install transformers wandb datasets tokenizers accelerate hydra-core
 ```
 
+### 여러 Troubleshoot
+#### PERMISSION_DENIED 에러가 발생해요
+```
+PERMISSION_DENIED: open(/dev/accel0): Operation not permitted: 
+
+# 이미 어떤 프로세스(좀비?)가 tpu를 쓰는지 보고 강제종료한다
+> sudo lsof -w /dev/accel0
+> kill -9 ?
+```
+
+
 ## 학습 방법(GPT)
 1. data/generate_for_gpt.py를 실행해서 GPT 학습용 데이터를 tokenizer로 인코딩한 다음 packing한다. 코드 안에서 어떤 huggingface dataset에서 생성할건지 지정한다.
 2. packing된 데이터를 불러와서 학습을 진행한다. script/flax/ 안에 있는 shell script 참고
