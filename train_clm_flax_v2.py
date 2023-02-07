@@ -133,6 +133,9 @@ class TrainingArguments:
     save_steps: int = field(
         default=500, metadata={"help": "Save checkpoint every X updates steps."}
     )
+    save_strategy: str = field(
+        default="no", metadata={"help": "Save strategy. no, epoch, steps"}
+    )
     eval_steps: int = field(
         default=None, metadata={"help": "Run an evaluation every X steps."}
     )
@@ -808,12 +811,19 @@ def main():
                 if has_tensorboard and jax.process_index() == 0:
                     write_eval_metric(summary_writer, eval_metrics, cur_step)
 
-            if cur_step % training_args.save_steps == 0 and cur_step > 0:
+            if training_args.save_strategy == "steps" and cur_step % training_args.save_steps == 0 and cur_step > 0:
                 # save checkpoint after each epoch and push checkpoint to the hub
                 if jax.process_index() == 0:
                     params = jax.device_get(unreplicate(state.params))
                     model.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}", params=params)
                     tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}")
+        
+        if training_args.save_strategy == "epoch":
+            # save checkpoint after each epoch and push checkpoint to the hub
+            if jax.process_index() == 0:
+                params = jax.device_get(unreplicate(state.params))
+                model.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}", params=params)
+                tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}")
 
     # save last step
     if jax.process_index() == 0:

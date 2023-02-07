@@ -10,7 +10,7 @@ disable_caching()
 
 dataset_paths = [
     # For tiny
-    "heegyu/kowikitext",
+    # "heegyu/kowikitext",
     # "heegyu/namuwiki-extracted",
     # "heegyu/aihub_sns_dialog_gpt",
     # "heegyu/nikl_messenger_dialog_gpt",
@@ -26,7 +26,7 @@ dataset_paths = [
     # For base
     # "heegyu/nikl_news",
     # "heegyu/nia_book",
-    # "Bingsu/KcBERT_Pre-Training_Corpus",
+    "Bingsu/KcBERT_Pre-Training_Corpus",
 ]
 
 # for dialog
@@ -37,16 +37,16 @@ dataset_paths = [
 #     "heegyu/aihub_twitter_dialog_gpt",
 #     "heegyu/aihub_emotional_dialog_gpt",
 # ]
-# split="train"
+split="train"
 
-dataset_paths = [
-    "heegyu/aihub_daily_conv_2022_gpt",
-]
-split="test"
+# dataset_paths = [
+#     "heegyu/aihub_daily_conv_2022_gpt",
+# ]
+# split="test"
 
 
 # True 면, 데이터 전처리 할 때 speaker id 안지운다
-is_dialog = True
+is_dialog = False
 
 
 def remove_speaker(x):
@@ -111,16 +111,16 @@ if __name__ == "__main__":
     #     tokenizer="heegyu/kogpt-neox-small",
     #     block_size=1024
     # )
-    # builder.main(
-    #     tokenizer="heegyu/kogpt-j-base",
-    #     block_size=1024,
-    #     output_dir="/data2/v1-vocab51k-block1024",
-    #     cache_dir="/data2/.cache"
-    # )
-
     builder.main(
         tokenizer="heegyu/kogpt-j-base",
         block_size=1024,
-        output_dir="/data2/dialog-v1-vocab51k-block1024/test",
-        cache_dir="/data2/.cache"
+        output_dir="/data/v1-vocab51k-block1024",
+        cache_dir="/data/.cache"
     )
+
+    # builder.main(
+    #     tokenizer="heegyu/kogpt-j-base",
+    #     block_size=1024,
+    #     output_dir="/data2/dialog-v1-vocab51k-block1024/test",
+    #     cache_dir="/data2/.cache"
+    # )
