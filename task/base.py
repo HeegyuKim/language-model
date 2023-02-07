@@ -200,8 +200,12 @@ class BaseTask:
                     if (
                         self.accelerator.is_main_process
                         and optimizer_step % self.training_args.logging_steps == 0
-                    ):
-                        metrics = {f"train/{k}": v.item() for k, v in step_output.items()}
+                    ):  
+                        if torch.is_tensor(step_output):
+                            metrics = {"train/loss": step_output.item()}
+                        else:
+                            metrics = {f"train/{k}": v.item() for k, v in step_output.items()}
+
                         metrics["optimizer_step"] = optimizer_step
                         metrics["train/learning_rate"] = self.lr_scheduler.scheduler._last_lr[0]
                         metrics["train/loss"] = loss.item() * self.training_args.gradient_accumulation_steps

@@ -221,6 +221,24 @@ class ModelArguments:
             )
         },
     )
+    director_gamma_train: Optional[float] = field(
+        default=0.2,
+        metadata={
+            "help": "default train gamma value for director model"
+        },
+    )
+    director_gamma_generate: Optional[float] = field(
+        default=5,
+        metadata={
+            "help": "default generate gamma value for director model"
+        },
+    )
+    director_frozen: Optional[bool] = field(
+        default=False,
+        metadata={
+            "help": "use frozen lm for director model"
+        },
+    )
     use_auth_token: bool = field(
         default=False,
         metadata={

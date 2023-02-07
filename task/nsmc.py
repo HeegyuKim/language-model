@@ -16,11 +16,15 @@ class NSMCTask(BaseTask):
         
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        if self.model.config.pad_token_id is None:
+            self.model.config.pad_token_id = self.tokenizer.pad_token_id
 
         with self.accelerator.local_main_process_first():
             self.mapped_dataset = self.dataset.map(
                 self._encode_data, remove_columns=self.dataset["train"].column_names
             )
+
+        print(self.mapped_dataset)
 
         return {
             'train': self.mapped_dataset['train'],

@@ -39,11 +39,11 @@ class DirectorHead(nn.Module):
         class_labels: (bs, )
         """
 
-        out_cls_logits = self.cls_head(last_hidden_states).sigmoid()  # (bs, seq, vocab)
+        out_cls_logits = self.cls_head(last_hidden_states)  # (bs, seq, vocab)
         loss = None
 
         if class_labels is not None:
-            cls_logits = out_cls_logits[:, :-1, :]
+            cls_logits = out_cls_logits[:, :-1, :].sigmoid()
             labels = labels[:, 1:]
 
             cls_logits = cls_logits.gather(-1, labels.masked_fill(labels < 0, 0).unsqueeze(-1))  # (bs, seq, 1)
@@ -73,6 +73,15 @@ class DirectorModel(GPT2LMHeadModel):
         for p in self.director_head.parameters():
             p.requires_grad = True
 
+    def apply_infer_logit(self, generator_output, classifier_output, gamma):
+        classifier_outputs = F.logsigmoid(classifier_output)
+        log_predictor_scores = F.log_softmax(generator_output, dim=-1)
+
+        # scores = log_predictor_scores + gamma * classifier_outputs
+        scores = log_predictor_scores + gamma * classifier_outputs #.pow(gamma)
+
+        return F.log_softmax(scores, dim=-1)
+
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -90,7 +99,7 @@ class DirectorModel(GPT2LMHeadModel):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         class_labels: Optional[torch.LongTensor] = None,
-        gamma: Optional[float] = None,
+        gamma: Optional[float] = 0.5,
         generate_positive: bool = True
     ) -> Union[Tuple, DirectorLMOutput]:
         output_hidden_states = True
@@ -127,13 +136,10 @@ class DirectorModel(GPT2LMHeadModel):
         
         out.class_logits = cls_logits
         out.class_loss = cls_loss
-        if gamma is not None:
-            out.logits = out.logits + cls_logits.pow(gamma)
-        else:
-            out.logits = out.logits + cls_logits
-        out.logits = out.logits / out.logits.sum(-1, keepdims=True)
+        out.logits = self.apply_infer_logit(out.logits, cls_logits, gamma)
+        # out.logits = out.logits / out.logits.sum(-1, keepdims=True)
 
         if out.loss is not None and out.class_loss is not None:
-            out.loss += out.class_loss
+            out.loss += gamma * out.class_loss
 
         return out

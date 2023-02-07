@@ -2,6 +2,7 @@ from .base import BaseTask
 
 import torch
 import evaluate
+import wandb
 
 from pprint import pprint
 from datasets import load_dataset
@@ -16,6 +17,7 @@ from typing import Any, Callable, Dict, List, NewType, Optional, Tuple, Union
 
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.utils import PaddingStrategy
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 @dataclass
 class DirectorCollator(object):
@@ -46,7 +48,27 @@ class DirectorCollator(object):
 
 
 class DirectorTask(BaseTask):
+
+    def setup(self):
+        super().setup()
+
+        if self.model_args.director_frozen:
+            self.model.freeze_gpt()
+
+                
+        MODEL = f"martin-ha/toxic-comment-model"
+
+        self.toxic_tokenizer = AutoTokenizer.from_pretrained(MODEL)
+        self.toxic_model = AutoModelForSequenceClassification.from_pretrained(MODEL).eval()
     
+    @torch.no_grad()
+    def classify_toxic(self, texts):
+        encoded_input = self.toxic_tokenizer(texts, return_tensors='pt', truncation=True, padding=True, max_length=512)
+        output = self.toxic_model(**encoded_input).logits.softmax(-1)[:, 1]
+        # scores = output.argmax(-1)
+        return output.tolist()
+
+
     def prepare_dataset(self):
         self.dataset = load_dataset("hate_speech18", split="train").train_test_split(0.1, seed=42)
         
@@ -82,11 +104,11 @@ class DirectorTask(BaseTask):
         )
 
     def training_step(self, batch):
-        out = self.model(**batch)
+        out = self.model(**batch, gamma=self.model_args.director_gamma_train)
 
         return {
-            'loss': out.class_loss,
-            'total_loss': out.loss
+            'loss': out.loss,
+            'class_loss': out.class_loss
         }
 
     def evaluation_step(self, batch):
@@ -115,13 +137,29 @@ class DirectorTask(BaseTask):
         device = next(model.parameters()).device
         model = model.cpu().eval()
 
-        prompt = "this is really "
+        prompt = "Holy "
         prompt = self.tokenizer.encode(prompt, return_tensors="pt")
 
-        sequences = model.generate(prompt, max_new_tokens=64, do_sample=True, num_return_sequences=5, gamma=15)
-        sequences = self.tokenizer.batch_decode(sequences)
+        all_sequences = []
 
-        print("test generations")
-        pprint(sequences)
+        for positive in [False, True]:
+            sequences = model.generate(
+                prompt, max_new_tokens=64, min_length=32, generate_positive=positive,
+                do_sample=True, num_return_sequences=5, gamma=self.model_args.director_gamma_generate)
+            sequences = self.tokenizer.batch_decode(sequences, skip_special_tokens=True)
+            toxicities = self.classify_toxic(sequences)
+            toxic = "toxic" if positive else "non-toxic"
+            print("test generations", toxic)
+            pprint(sequences)
+
+            for seq, toxicity in zip(sequences, toxicities):
+                all_sequences.append((toxic, seq, toxicity))
+
+        if wandb.run is not None:
+            table = wandb.Table(['class', 'text', 'toxicity'])
+            for seq in all_sequences:
+                table.add_data(*seq)
+
+            wandb.log({'sample_generations': table})
 
         model.to(device)
