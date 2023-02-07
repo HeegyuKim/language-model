@@ -9,12 +9,14 @@ Name | Model | Size | Hidden | # Layers | # Heads | max_seq_len
 [kogpt-j-350m](https://huggingface.co/heegyu/kogpt-j-350m) | GPT-J | 350M | 1024 | 20 | 16 | 1024
 [ajoublue-gpt2-base](https://huggingface.co/heegyu/ajoublue-gpt2-base) | GPT2 | 125M | 768 | 12 | 12 | 1024
 [ajoublue-gpt2-base-24L](https://huggingface.co/heegyu/ajoublue-gpt2-base-24L) | GPT2 | 210M | 768 | 24 | 12 | 1024
+[ajoublue-gpt2-base-24L](https://huggingface.co/heegyu/ajoublue-gpt2-medium) | GPT2 | 355M | 1024 | 24 | 16 | 1024
 
 이 프로젝트는 아주대학교 파란학기제와 Google TPU Research Cloud의 지원을 받아서 진행되고 있습니다.
 
 ### TODO
-- GPT2 125M, 210M(base-24L), 355M
-- BART-large
+- Korean BART-large
+- Korean BART, T5 LM-adapted
+- BiLingual GPT
 
 
 ## TPU-VM Setup
