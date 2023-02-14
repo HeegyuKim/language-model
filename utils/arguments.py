@@ -233,6 +233,12 @@ class ModelArguments:
             "help": "default generate gamma value for director model"
         },
     )
+    director_eval_classifier: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "director eval generation text classifier(huggingface)"
+        },
+    )
     director_frozen: Optional[bool] = field(
         default=False,
         metadata={

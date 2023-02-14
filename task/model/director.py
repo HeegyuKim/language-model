@@ -73,14 +73,38 @@ class DirectorModel(GPT2LMHeadModel):
         for p in self.director_head.parameters():
             p.requires_grad = True
 
-    def apply_infer_logit(self, generator_output, classifier_output, gamma):
-        classifier_outputs = F.logsigmoid(classifier_output)
+    def apply_infer_logit(self, generator_output, classifier_output, gamma, generate_positive):
+        if generate_positive:
+            classifier_outputs = F.logsigmoid(classifier_output)
+        else:
+            classifier_outputs = F.log(1 - classifier_output.sigmoid())
+
         log_predictor_scores = F.log_softmax(generator_output, dim=-1)
 
         # scores = log_predictor_scores + gamma * classifier_outputs
         scores = log_predictor_scores + gamma * classifier_outputs #.pow(gamma)
 
         return F.log_softmax(scores, dim=-1)
+
+    def explicit_normalization_loss(self, labels, cls_logits):
+        labels = labels.unsqueeze(-1)
+
+        non_target_indices = torch.ones_like(cls_logits, dtype=torch.bool)
+        non_target_indices.scatter_(-1, labels.masked_fill(labels < 0, 0), False)
+
+        notnull = labels >= 0
+
+        normalized_classifier_scores = (
+            torch.sigmoid(cls_logits) - 0.5
+        ) * notnull # notnull.unsqueeze(dim=-1)
+
+        normalized_non_target_classifier_scores = normalized_classifier_scores[
+            non_target_indices
+        ]#.reshape(*cls_logits.shape[:-1], -1)
+
+        return (normalized_non_target_classifier_scores ** 2).mean()
+
+        # return ((torch.sigmoid(cls_logits) - 0.5)**2).mean()
 
     def forward(
         self,
@@ -130,13 +154,13 @@ class DirectorModel(GPT2LMHeadModel):
             attention_mask=attention_mask,
         )
 
-        if not generate_positive:
-            cls_logits = 1 - cls_logits
+        # if not generate_positive:
+        #     cls_logits = 1 - cls_logits
         
         
         out.class_logits = cls_logits
         out.class_loss = cls_loss
-        out.logits = self.apply_infer_logit(out.logits, cls_logits, gamma)
+        out.logits = self.apply_infer_logit(out.logits, cls_logits, gamma, generate_positive)
         # out.logits = out.logits / out.logits.sum(-1, keepdims=True)
 
         if out.loss is not None and out.class_loss is not None:

@@ -22,10 +22,10 @@ function train_nsmc {
         --from_flax $FROM_FLAX \
         --num_train_epochs 3 \
         --num_labels 2 \
-        --per_device_train_batch_size 4 \
-        --per_device_eval_batch_size 4 \
+        --per_device_train_batch_size 8 \
+        --per_device_eval_batch_size 8 \
         --max_sequence_length 128 \
-        --save_strategy last \
+        --save_strategy no \
         --logging_steps 100
 }
 
