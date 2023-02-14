@@ -1,7 +1,7 @@
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Callable, Optional
-from transformers import HfArgumentParser, AutoModelForSequenceClassification, AutoModelForCausalLM, AutoConfig
+from transformers import HfArgumentParser
 import sys
 
 
@@ -15,6 +15,11 @@ class TrainingArguments:
     output_dir: str = field(
         metadata={
             "help": "The output directory where the model predictions and checkpoints will be written."
+        },
+    )
+    task: str = field(
+        metadata={
+            "help": "task name"
         },
     )
     project: str = field(
@@ -133,12 +138,6 @@ class TrainingArguments:
         return d
 
 
-MODEL_TYPES = {
-    "sequence-classification": AutoModelForSequenceClassification,
-    "causal-lm": AutoModelForCausalLM
-}
-
-
 @dataclass
 class ModelArguments:
     """
@@ -162,7 +161,7 @@ class ModelArguments:
             )
         },
     )
-    from_flax: Optional[str] = field(
+    from_flax: bool = field(
         default=False,
         metadata={
             "help": (
@@ -186,8 +185,7 @@ class ModelArguments:
     model_type: Optional[str] = field(
         default="causal-lm",
         metadata={
-            "help": "If training from scratch, pass a model type from the list: "
-            + ", ".join(MODEL_TYPES)
+            "help": "model types"
         },
     )
     config_name: Optional[str] = field(
@@ -223,6 +221,24 @@ class ModelArguments:
             )
         },
     )
+    director_gamma_train: Optional[float] = field(
+        default=0.2,
+        metadata={
+            "help": "default train gamma value for director model"
+        },
+    )
+    director_gamma_generate: Optional[float] = field(
+        default=5,
+        metadata={
+            "help": "default generate gamma value for director model"
+        },
+    )
+    director_frozen: Optional[bool] = field(
+        default=False,
+        metadata={
+            "help": "use frozen lm for director model"
+        },
+    )
     use_auth_token: bool = field(
         default=False,
         metadata={
@@ -232,40 +248,6 @@ class ModelArguments:
             )
         },
     )
-
-    def get_model(self):
-        model_cls = MODEL_TYPES[self.model_type]
-
-        kwargs = {}
-
-        if self.model_type == "sequence-classification":
-            kwargs["num_labels"] = self.num_labels
-
-        if self.config_name is not None:
-            config = AutoConfig.from_pretrained(self.config_name)
-            model = model_cls(config, **kwargs)
-        elif self.model_name_or_path is not None:
-            model = model_cls.from_pretrained(
-                self.model_name_or_path,
-                revision=self.revision,
-                from_flax=self.from_flax,
-                **kwargs
-                )
-        else:
-            raise Exception("config_name or model_name_or_path 가 지정되어야 합니다.")
-        
-        return model
-
-    def get_tokenizer(self):
-        from transformers import AutoTokenizer
-
-        if self.tokenizer_name is not None:
-            return AutoTokenizer.from_pretrained(self.tokenizer_name)
-        elif self.model_name_or_path is not None:
-            return AutoTokenizer.from_pretrained(self.model_name_or_path)
-        else:
-            raise Exception("config_name or model_name_or_path 가 지정되어야 합니다.")
-
 
 @dataclass
 class DataTrainingArguments:
@@ -343,15 +325,15 @@ class DataTrainingArguments:
         metadata={"help": "Whether to keep line breaks when using TXT files or not."},
     )
 
-    def __post_init__(self):
-        if (
-            self.dataset_name is None
-            and self.train_file is None
-            and self.validation_file is None
-        ):
-            raise ValueError(
-                "Need either a dataset name or a training/validation file."
-            )
+    # def __post_init__(self):
+    #     if (
+    #         self.dataset_name is None
+    #         and self.train_file is None
+    #         and self.validation_file is None
+    #     ):
+    #         raise ValueError(
+    #             "Need either a dataset name or a training/validation file."
+    #         )
         # else:
         #     if self.train_file is not None:
         #         extension = self.train_file.split(".")[-1]
