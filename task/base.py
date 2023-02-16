@@ -236,11 +236,15 @@ class BaseTask:
             if self.accelerator.is_main_process:
                 self.save_model(f"epoch-{epoch}-last")
             self.accelerator.wait_for_everyone()
+
     def save_model(self, name):
-        unwrapped_model = self.accelerator.unwrap_model(self.model)
-        unwrapped_model.save_pretrained(
-            f"{self.training_args.output_dir}/{self.training_args.run_name}/{name}"
-        )
+        path = f"{self.training_args.output_dir}/{self.training_args.run_name}/{name}"
+        device = next(self.model.parameters()).device
+        unwrapped_model = self.accelerator.unwrap_model(self.model).cpu()
+        unwrapped_model.save_pretrained(path)
+        self.tokenizer.save_pretrained(path)
+
+        unwrapped_model.to(device)
 
     @torch.no_grad()
     def evaluate(self, epoch, optimizer_step):

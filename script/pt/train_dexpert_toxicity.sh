@@ -6,7 +6,7 @@ PROJECT="dexpert"
 
 function train {
     MODEL_NAME="gpt2"
-    RUN_NAME="dexpert-$1"
+    RUN_NAME="$1"
     TASK=$1
 
     accelerate launch train_torch.py \
@@ -21,9 +21,9 @@ function train {
         --per_device_train_batch_size 8 \
         --per_device_eval_batch_size 8 \
         --max_sequence_length 128 \
-        --save_strategy last \
-        --logging_steps 100
+        --save_strategy epoch \
+        --logging_steps 500
 }
 
-train "dexpert-toxic"
+# train "dexpert-toxic"
 train "dexpert-non-toxic"
