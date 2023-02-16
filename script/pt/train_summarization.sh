@@ -1,7 +1,7 @@
 export USE_TORCH=True
 
-MODEL_TYPE="sequence-classification"
-PROJECT="klue-ynat-gpt"
+MODEL_TYPE="causal-lm"
+PROJECT="nia-summ-gpt"
 MODEL_OWNER="heegyu"
 MODEL_REVISION="main"
 FROM_FLAX=false
@@ -17,24 +17,24 @@ function train_nsmc {
         --do_eval --do_train \
         --model_name_or_path $MODEL_NAME \
         --model_type $MODEL_TYPE \
-        --task klue-ynat \
+        --task nia-summ \
         --revision $MODEL_REVISION \
         --from_flax $FROM_FLAX \
         --num_train_epochs 3 \
-        --num_labels 7 \
-        --per_device_train_batch_size 8 \
-        --per_device_eval_batch_size 8 \
-        --max_sequence_length 64 \
-        --save_strategy no \
+        --per_device_train_batch_size 1 \
+        --per_device_eval_batch_size 1 \
+        --gradient_accumulation_steps=8 \
+        --max_sequence_length 1024 \
+        --save_strategy last \
         --logging_steps 100
 }
 
 train_nsmc "ajoublue-gpt2-base"
-train_nsmc "ajoublue-gpt2-base-24L"
-train_nsmc "ajoublue-gpt2-medium"
-train_nsmc "kogpt-j-base"
-train_nsmc "kogpt-j-base-24L"
-train_nsmc "kogpt-j-350m"
+# train_nsmc "ajoublue-gpt2-base-24L"
+# train_nsmc "ajoublue-gpt2-medium"
+# train_nsmc "kogpt-j-base"
+# train_nsmc "kogpt-j-base-24L"
+# train_nsmc "kogpt-j-350m"
 
 # MODEL_OWNER="skt"
 # train_nsmc "kogpt2-base-v2"

@@ -358,6 +358,48 @@ class DataTrainingArguments:
         #             "jsonl"
         #         ], "`validation_file` should be a csv, a json or a txt file."
 
+@dataclass
+class GenerationArguments:
+    """
+    Arguments pertaining to what data we are going to input our model for training and eval.
+    """
+
+    do_sample: Optional[bool] = field(
+        default=False,
+        metadata={"help": "do_sample"},
+    )
+    num_beams: Optional[int] = field(
+        default=1,
+        metadata={"help": "num_beams"},
+    )
+    top_p: Optional[float] = field(
+        default=1.0,
+        metadata={"help": "num_beams"},
+    )
+    top_k: Optional[int] = field(
+        default=None,
+        metadata={"help": "num_beams"},
+    )
+    repetition_penalty: Optional[float] = field(
+        default=None,
+        metadata={"help": "repetition_penalty"},
+    )
+    max_length: Optional[int] = field(
+        default=None,
+        metadata={"help": "max_length for generate()"},
+    )
+    min_length: Optional[int] = field(
+        default=None,
+        metadata={"help": "min_length for generate()"},
+    )
+    max_new_tokens: Optional[int] = field(
+        default=None,
+        metadata={"help": "max_new_tokens for generate()"},
+    )
+    early_stopping: Optional[bool] = field(
+        default=False,
+        metadata={"help": "max_new_tokens for generate()"},
+    )
 
 def parse_arguments():
     parser = HfArgumentParser(

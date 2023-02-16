@@ -19,13 +19,17 @@ import evaluate
 from pprint import pprint
 
 from transformers import HfArgumentParser
-from task import nsmc, director, ctrl, klue
+from task import nsmc, director, ctrl, klue, summarization, dexpert
 
 TASKS = {
     "nsmc": nsmc.NSMCTask,
     "director": director.DirectorTask,
     "ctrl": ctrl.CTRLTask,
-    "klue-ynat": klue.YNATTask
+    "klue-ynat": klue.YNATTask,
+    "klue-sts": klue.STSBinaryTask,
+    "nia-summ": summarization.NiaSummarizationTask,
+    "dexpert-toxic": dexpert.ToxicDExpertTask,
+    "dexpert-non-toxic": dexpert.NonToxicDExpertTask,
     }
 
 
