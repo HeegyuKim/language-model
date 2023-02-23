@@ -133,10 +133,23 @@ class DataCollatorForCausalLM:
     label_pad_token_id: int = -100
     return_tensors: str = "pt"
 
+    padding_feature_keys: List[str] = field(
+        default_factory=lambda: ["input_ids", "decoder_input_ids", "labels", "attention_mask", "decoder_attention_mask"]
+    )
+
+    def __collate(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        out = defaultdict(list)
+        for item in features:
+            for k, v in item.items():
+                out[k].append(v)
+        return out
+
     def __call__(self, features, return_tensors=None):
         if return_tensors is None:
             return_tensors = self.return_tensors
-        labels = [feature["labels"] for feature in features] if "labels" in features[0].keys() else None
+
+        labels = [x['labels'] for x in features] if "labels" in features[0] else None
+
         # We have to pad the labels before calling `tokenizer.pad` as this method won't pad them and needs them of the
         # same length to return tensors.
         if labels is not None:
@@ -164,12 +177,25 @@ class DataCollatorForCausalLM:
                 else:
                     feature["labels"] = np.concatenate([remainder, feature["labels"]]).astype(np.int64)
 
-        features = self.tokenizer.pad(
-            features,
+        features = self.__collate(features)
+        padding_features = {}
+
+        for k in self.padding_feature_keys:
+            if k in features:
+                padding_features[k] = features[k]
+
+        # print(padding_features)
+        # print(features)
+
+        padding_features = self.tokenizer.pad(
+            padding_features,
             padding=self.padding,
             max_length=self.max_length,
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors=return_tensors,
         )
+
+        features.update(padding_features)
+
 
         return features

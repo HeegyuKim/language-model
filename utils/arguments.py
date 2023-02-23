@@ -41,6 +41,9 @@ class TrainingArguments:
     do_eval: bool = field(
         default=False, metadata={"help": "Whether to run eval on the dev set."}
     )
+    do_eval_generate: bool = field(
+        default=False, metadata={"help": "Whether to run eval generation on the dev set."}
+    )
     per_device_train_batch_size: int = field(
         default=8, metadata={"help": "Batch size per GPU/TPU core/CPU for training."}
     )

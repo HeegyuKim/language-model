@@ -14,7 +14,7 @@ from utils.metric import ConfiguredMetric
 class NiaSummarizationTask(BaseTask):
 
     def prepare_dataset(self):
-        self.dataset = load_dataset("heegyu/nia_summary")
+        self.dataset = load_dataset("heegyu/aihub_daily_conv_2022_CRF", use_auth_token=True)
         # self.rouge_scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL", "rougeLsum"])
         
         if self.tokenizer.pad_token is None:
@@ -32,21 +32,23 @@ class NiaSummarizationTask(BaseTask):
     def _encode_data(self, x):
         max_length = self.model_args.max_sequence_length
 
-        prompt_text = f"내용: {x['text']}\n요약: "
-        summary_text = x['summary'] + self.tokenizer.eos_token
+        prompt_text = f"{x['context']}\n"
+        label_text = x['response']
         
+        self.tokenizer.truncation_side = "left"
         prompt = self.tokenizer.encode(prompt_text, truncation=True, max_length=max_length)
-        summary = self.tokenizer.encode(summary_text, truncation=True, max_length=max_length)
+        self.tokenizer.truncation_side = "right"
+        label = self.tokenizer.encode(label_text, truncation=True, max_length=max_length)
 
-        if len(prompt) + len(summary) > max_length:
-            prompt = prompt[:max_length - len(summary)]
+        if len(prompt) + len(label) > max_length:
+            prompt = prompt[-(max_length - len(label)):]
         
-        ids = prompt + summary
-        labels = [-100] * len(prompt) + summary
+        ids = prompt + label
+        labels = [-100] * len(prompt) + label
 
         out = {"input_ids": ids, "attention_mask": [1] * len(ids), "labels": labels}
         out["prompt_text"] = prompt_text
-        out["label_text"] = summary_text
+        out["label_text"] = label_text
         return out
         
 

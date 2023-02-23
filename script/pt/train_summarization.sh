@@ -4,14 +4,14 @@ MODEL_TYPE="causal-lm"
 PROJECT="nia-summ-gpt"
 MODEL_OWNER="heegyu"
 MODEL_REVISION="main"
-FROM_FLAX=false
+DTYPE="float32"
 
-function train_nsmc {
+function train {
     MODEL_NAME="$MODEL_OWNER/$1"
     RUN_NAME="$1-$MODEL_REVISION"
 
     accelerate launch train_torch.py \
-        --output_dir "./checkpoint/$RUN_NAME" \
+        --output_dir "./checkpoint/nia-summ" \
         --project $PROJECT\
         --run_name $RUN_NAME \
         --do_eval --do_train \
@@ -19,22 +19,24 @@ function train_nsmc {
         --model_type $MODEL_TYPE \
         --task nia-summ \
         --revision $MODEL_REVISION \
-        --from_flax $FROM_FLAX \
         --num_train_epochs 3 \
         --per_device_train_batch_size 1 \
         --per_device_eval_batch_size 1 \
-        --gradient_accumulation_steps=8 \
+        --gradient_accumulation_steps 8 \
         --max_sequence_length 1024 \
         --save_strategy last \
         --logging_steps 100
+
+    rm -rf ~/.cache/huggingface/datasets
 }
 
-train_nsmc "ajoublue-gpt2-base"
-# train_nsmc "ajoublue-gpt2-base-24L"
-# train_nsmc "ajoublue-gpt2-medium"
-# train_nsmc "kogpt-j-base"
-# train_nsmc "kogpt-j-base-24L"
-# train_nsmc "kogpt-j-350m"
+train "ajoublue-gpt2-base"
+train "ajoublue-gpt2-base-24L"
+train "kogpt-j-base"
+train "kogpt-j-base-24L"
+DTYPE="bfloat16"
+train "ajoublue-gpt2-medium"
+train "kogpt-j-350m"
 
 # MODEL_OWNER="skt"
-# train_nsmc "kogpt2-base-v2"
+# train "kogpt2-base-v2"

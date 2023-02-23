@@ -1,12 +1,12 @@
 DATASET="imdb"
-DATASET="heegyu/news-category-balanced-top10"
+# DATASET="heegyu/news-category-balanced-top10"
 MODEL_TYPE="causal-lm"
 MODEL_NAME="gpt2"
 RUN_NAME="ctrl-$MODEL_NAME-$DATASET"
 PROJECT="ctrl"
 
 accelerate launch train_torch.py \
-    --output_dir "./checkpoint/$RUN_NAME" \
+    --output_dir "./checkpoint/ctrl" \
     --project $PROJECT \
     --run_name $RUN_NAME \
     --do_eval --do_train \
