@@ -22,5 +22,5 @@ train() {
         --logging_steps 50
 }
 
-train "imdb"
+# train "imdb"
 train "emotion"
