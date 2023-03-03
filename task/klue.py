@@ -84,7 +84,7 @@ class STSBinaryTask(BaseTask):
         self.dataset = load_dataset("klue", "sts")
         self.evaluator = evaluate.combine([
             evaluate.load("accuracy"),
-            evaluate.load("f1", average="macro")
+            evaluate.load("f1")
         ])
         
         if self.tokenizer.pad_token is None:

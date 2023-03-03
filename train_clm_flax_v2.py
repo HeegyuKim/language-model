@@ -139,6 +139,9 @@ class TrainingArguments:
     eval_steps: int = field(
         default=None, metadata={"help": "Run an evaluation every X steps."}
     )
+    eval_strategy: str = field(
+        default="no", metadata={"help": "Run an evaluation every epoch, steps or at the end"}
+    )
     seed: int = field(
         default=42,
         metadata={"help": "Random seed that will be set at the beginning of training."},
@@ -204,6 +207,12 @@ class ModelArguments:
         default=None,
         metadata={
             "help": "Pretrained config name or path if not the same as model_name"
+        },
+    )
+    revision: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Pretrained model reivison name"
         },
     )
     tokenizer_name: Optional[str] = field(
@@ -361,7 +370,7 @@ class TrainState(train_state.TrainState):
 
 
 def data_loader(
-    rng: jax.random.PRNGKey,
+    rng: Optional[jax.random.PRNGKey],
     dataset: Dataset,
     batch_size: int,
     shuffle: bool = False,
@@ -489,18 +498,28 @@ def main():
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    data_files = {
-        "train": data_args.train_file
-    }
-
     train_dataset = load_dataset(
         "json",
-        data_files=data_files,
+        data_files={
+            "train": data_args.train_file
+        },
         cache_dir=model_args.cache_dir,
         split="train",
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    eval_dataset = None
+
+    if data_args.validation_file is not None:
+        eval_dataset = load_dataset(
+            "json",
+            data_files={
+                "train": data_args.validation_file
+            },
+            cache_dir=model_args.cache_dir,
+            split="train",
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+    else:
+        eval_dataset = None
 
 
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
@@ -546,17 +565,21 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
+    print(model_args.revision)
+    
     if model_args.model_name_or_path:
         model = FlaxAutoModelForCausalLM.from_pretrained(
             model_args.model_name_or_path,
             config=config,
             seed=training_args.seed,
+            revision=model_args.revision,
             dtype=getattr(jnp, model_args.dtype),
             use_auth_token=True if model_args.use_auth_token else None,
         )
     else:
         model = FlaxAutoModelForCausalLM.from_config(
             config, seed=training_args.seed, dtype=getattr(jnp, model_args.dtype),
+            revision=model_args.revision,
         )
 
 
@@ -709,6 +732,51 @@ def main():
         metrics = jax.lax.pmean(metrics, axis_name="batch")
         return metrics
 
+    def evaluate(cur_step, epochs_tqdm=None):
+        # ======================== Evaluating ==============================
+        eval_metrics = []
+        eval_loader = data_loader(
+            None, eval_dataset, eval_batch_size, drop_last=False
+        )
+        eval_steps = math.ceil(len(eval_dataset) / eval_batch_size)
+        for _ in tqdm(
+            range(eval_steps), desc="Evaluating...", position=2, leave=False
+        ):
+            # Model forward
+            batch = next(eval_loader)
+            metrics = pad_shard_unpad(p_eval_step, static_return=True)(
+                state.params, batch, min_device_batch=per_device_eval_batch_size
+            )
+            eval_metrics.append(metrics)
+
+        # normalize eval metrics
+        eval_metrics = get_metrics(eval_metrics)
+        eval_metrics = jax.tree_util.tree_map(jnp.mean, eval_metrics)
+
+        try:
+            eval_metrics["perplexity"] = math.exp(eval_metrics["loss"])
+        except OverflowError:
+            eval_metrics["perplexity"] = float("inf")
+
+        # Print metrics and update progress bar
+        if epochs_tqdm is not None:
+            desc = (
+                f"Step... ({cur_step} | Eval Loss: {eval_metrics['loss']} | Eval Perplexity:"
+                f" {eval_metrics['perplexity']})"
+            )
+            epochs.write(desc)
+            epochs.desc = desc
+
+        if jax.process_index() == 0:
+            eval_metrics = {
+                f"eval/{metric_name}": value
+                for metric_name, value in eval_metrics.items()
+            }
+            eval_metrics['eval/loss'] = eval_metrics['eval/loss'].item()
+            print(eval_metrics)
+            if wandb.run is not None and jax.process_index() == 0:
+                wandb.log(eval_metrics)
+
     # Create parallel version of the train and eval step
     p_train_step = jax.pmap(train_step, "batch", donate_argnums=(0,))
     p_eval_step = jax.pmap(eval_step, "batch")
@@ -731,140 +799,79 @@ def main():
 
     train_time = 0
     train_metrics = []
-    epochs = tqdm(range(num_epochs), desc="Epoch ... ", position=0)
-    for epoch in epochs:
-        # ======================== Training ================================
-        train_start = time.time()
+    if training_args.do_train:
+        epochs = tqdm(range(num_epochs), desc="Epoch ... ", position=0)
+        for epoch in epochs:
+            # ======================== Training ================================
+            train_start = time.time()
 
-        # Create sampling rng
-        rng, input_rng = jax.random.split(rng)
+            # Create sampling rng
+            rng, input_rng = jax.random.split(rng)
 
-        # Generate an epoch by shuffling sampling indices from the train dataset
-        train_loader = data_loader(
-            input_rng, train_dataset, train_batch_size, shuffle=True
-        )
-        steps_per_epoch = len(train_dataset) // train_batch_size
-        # train
-        for step in tqdm(
-            range(steps_per_epoch), desc="Training...", position=1, leave=False
-        ):
-            batch = next(train_loader)
-            batch = shard(batch)
-            state, train_metric = p_train_step(state, batch)
-            train_metrics.append(train_metric)
+            # Generate an epoch by shuffling sampling indices from the train dataset
+            train_loader = data_loader(
+                input_rng, train_dataset, train_batch_size, shuffle=True
+            )
+            steps_per_epoch = len(train_dataset) // train_batch_size
+            # train
+            for step in tqdm(
+                range(steps_per_epoch), desc="Training...", position=1, leave=False
+            ):
+                batch = next(train_loader)
+                batch = shard(batch)
+                state, train_metric = p_train_step(state, batch)
+                train_metrics.append(train_metric)
 
-            cur_step = epoch * (len(train_dataset) // train_batch_size) + step 
-            # cur_step = cur_step // training_args.gradient_accumulation_steps
+                cur_step = epoch * (len(train_dataset) // train_batch_size) + step 
+                # cur_step = cur_step // training_args.gradient_accumulation_steps
 
-            if cur_step % training_args.logging_steps == 0 and cur_step > 0:
-                # Save metrics
-                train_metric = unreplicate(train_metric)
-                train_time += time.time() - train_start
+                if cur_step % training_args.logging_steps == 0 and cur_step > 0:
+                    # Save metrics
+                    train_metric = unreplicate(train_metric)
+                    train_time += time.time() - train_start
 
-                # epochs.write(
-                #     f"Step... ({cur_step} | Loss: {train_metric['loss'].mean()}, Learning Rate:"
-                #     f" {train_metric['learning_rate'].mean()})"
-                # )
-                wandb.log({
-                    "train/loss": train_metric['loss'].mean().item(),
-                    "train/learning_rate": train_metric['learning_rate'].mean().item(),
-                    "train/global_step": cur_step
-                })
+                    # epochs.write(
+                    #     f"Step... ({cur_step} | Loss: {train_metric['loss'].mean()}, Learning Rate:"
+                    #     f" {train_metric['learning_rate'].mean()})"
+                    # )
+                    wandb.log({
+                        "train/loss": train_metric['loss'].mean().item(),
+                        "train/learning_rate": train_metric['learning_rate'].mean().item(),
+                        "train/global_step": cur_step
+                    })
 
-                train_metrics = []
+                    train_metrics = []
 
-            if training_args.do_eval and cur_step % training_args.eval_steps == 0 and cur_step > 0:
-                # ======================== Evaluating ==============================
-                eval_metrics = []
-                eval_loader = data_loader(
-                    input_rng, eval_dataset, eval_batch_size, drop_last=False
-                )
-                eval_steps = math.ceil(len(eval_dataset) / eval_batch_size)
-                for _ in tqdm(
-                    range(eval_steps), desc="Evaluating...", position=2, leave=False
-                ):
-                    # Model forward
-                    batch = next(eval_loader)
-                    metrics = pad_shard_unpad(p_eval_step, static_return=True)(
-                        state.params, batch, min_device_batch=per_device_eval_batch_size
-                    )
-                    eval_metrics.append(metrics)
+                if training_args.do_eval and training_args.eval_strategy == "steps" and cur_step % training_args.eval_steps == 0 and cur_step > 0:
+                    evaluate(cur_step, epochs)
 
-                # normalize eval metrics
-                eval_metrics = get_metrics(eval_metrics)
-                eval_metrics = jax.tree_util.tree_map(jnp.mean, eval_metrics)
 
-                try:
-                    eval_metrics["perplexity"] = math.exp(eval_metrics["loss"])
-                except OverflowError:
-                    eval_metrics["perplexity"] = float("inf")
-
-                # Print metrics and update progress bar
-                desc = (
-                    f"Step... ({cur_step} | Eval Loss: {eval_metrics['loss']} | Eval Perplexity:"
-                    f" {eval_metrics['perplexity']})"
-                )
-                epochs.write(desc)
-                epochs.desc = desc
-
-                # Save metrics
-                if has_tensorboard and jax.process_index() == 0:
-                    write_eval_metric(summary_writer, eval_metrics, cur_step)
-
-            if training_args.save_strategy == "steps" and cur_step % training_args.save_steps == 0 and cur_step > 0:
+                if training_args.save_strategy == "steps" and cur_step % training_args.save_steps == 0 and cur_step > 0:
+                    # save checkpoint after each epoch and push checkpoint to the hub
+                    if jax.process_index() == 0:
+                        params = jax.device_get(unreplicate(state.params))
+                        model.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}", params=params)
+                        tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}")
+            
+            if training_args.save_strategy == "epoch":
                 # save checkpoint after each epoch and push checkpoint to the hub
                 if jax.process_index() == 0:
                     params = jax.device_get(unreplicate(state.params))
-                    model.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}", params=params)
-                    tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}")
-        
-        if training_args.save_strategy == "epoch":
-            # save checkpoint after each epoch and push checkpoint to the hub
-            if jax.process_index() == 0:
-                params = jax.device_get(unreplicate(state.params))
-                model.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}", params=params)
-                tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}")
+                    model.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}", params=params)
+                    tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}")
 
-    # save last step
-    if jax.process_index() == 0:
-        params = jax.device_get(unreplicate(state.params))
-        model.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}", params=params)
-        tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}")
+            if training_args.do_eval and training_args.eval_strategy == "epoch":
+                evaluate(cur_step, epochs)
+
+        if training_args.save_strategy == "last" and jax.process_index() == 0:
+            # save checkpoint after each epoch and push checkpoint to the hub
+            params = jax.device_get(unreplicate(state.params))
+            model.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}-last", params=params)
+            tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}-last")
 
     # Eval after training
-    if training_args.do_eval:
-        eval_metrics = []
-        eval_loader = data_loader(
-            input_rng, eval_dataset, eval_batch_size, drop_last=False
-        )
-        eval_steps = math.ceil(len(eval_dataset) / eval_batch_size)
-        for _ in tqdm(range(eval_steps), desc="Evaluating...", position=2, leave=False):
-            # Model forward
-            batch = next(eval_loader)
-            metrics = pad_shard_unpad(p_eval_step, static_return=True)(
-                state.params, batch, min_device_batch=per_device_eval_batch_size
-            )
-            eval_metrics.append(metrics)
-
-        # normalize eval metrics
-        eval_metrics = get_metrics(eval_metrics)
-        eval_metrics = jax.tree_util.tree_map(
-            lambda x: jnp.mean(x).item(), eval_metrics
-        )
-
-        try:
-            eval_metrics["perplexity"] = math.exp(eval_metrics["loss"])
-        except OverflowError:
-            eval_metrics["perplexity"] = float("inf")
-
-        if jax.process_index() == 0:
-            eval_metrics = {
-                f"eval_{metric_name}": value
-                for metric_name, value in eval_metrics.items()
-            }
-            path = os.path.join(training_args.output_dir, "eval_results.json")
-            with open(path, "w") as f:
-                json.dump(eval_metrics, f, indent=4, sort_keys=True)
+    if training_args.do_eval and training_args.eval_strategy == "last":
+        evaluate(0)
 
     if wandb.run is not None and jax.process_index() == 0:
         wandb.finish()

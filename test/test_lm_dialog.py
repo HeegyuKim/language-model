@@ -1,11 +1,11 @@
 from transformers import pipeline
 
 print('start model loading')
+model_name = '/data/checkpoint/dialog/heegyu/ajoublue-gpt2-medium/checkpoint-epoch-17480-last/'
 generator = pipeline(
     'text-generation',
-    # model='/data2/checkpoint/gpt-j-base-dialog/epoch-7/',
-    model='/data2/checkpoint/gpt-j-350m-dialog/epoch-9/',
-    tokenizer='heegyu/kogpt-j-base'
+    model=model_name,
+    tokenizer=model_name
 )
 
 print('start test generation')
@@ -18,10 +18,11 @@ generation_args = dict(
     top_p=0.7,
     early_stopping=True
 )
+
 print(generator(
-    ["0 : **는 게임 좋아하니\n1 :",
-    "0 : 어제 강남에서 살인사건 났대 ㅜㅜ 너무 무서워\n1 : 헐 왜? 무슨 일 있었어?\n0 : 사진보니까 막 피흘리는 사람있고 경찰들이 떠서 제압하고 난리도 아니었다던데??\n1 :",
-    "0 : 자기야 어제는 나한테 왜 그랬어?\n1 : 뭔 일 있었어?\n0 : 어떻게 나한테 말도 없이 그럴 수 있어? 나 진짜 실망했어\n1 : "],
+    ["0 : **는 게임 좋아하니</s>1 :",
+    "0 : 어제 강남에서 살인사건 났대 ㅜㅜ 너무 무서워</s>1 : 헐 왜? 무슨 일 있었어?</s>0 : 사진보니까 막 피흘리는 사람있고 경찰들이 떠서 제압하고 난리도 아니었다던데??</s>1 :",
+    "0 : 자기야 어제는 나한테 왜 그랬어?</s>1 : 뭔 일 있었어?</s>0 : 어떻게 나한테 말도 없이 그럴 수 있어? 나 진짜 실망했어</s>1 : "],
     do_sample=True,
     max_new_tokens=32
 ))

@@ -64,7 +64,7 @@ class CTRLTask(BaseTask):
 
     def _encode_data(self, x):
         ctrl_code = self.ctrl_labels[x['label']]
-        text = f"{ctrl_code} " + x["text"]
+        text = f"{ctrl_code} " + x["text"].strip()
         ids = self.tokenizer.encode(
             text, truncation=True, max_length=self.model_args.max_sequence_length
         )
