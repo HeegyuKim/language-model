@@ -30,19 +30,17 @@ function train_nsmc {
 }
 
 # train_nsmc "ajoublue-gpt2-base"
-train_nsmc "ajoublue-gpt2-base-24L"
-train_nsmc "ajoublue-gpt2-medium"
+# train_nsmc "ajoublue-gpt2-base-24L"
+# train_nsmc "ajoublue-gpt2-medium"
 
 MODEL_REVISION="master"
-FROM_FLAX=true
-
 train_nsmc "kogpt-j-base"
 
-MODEL_REVISION="main"
-FROM_FLAX=false
+# MODEL_REVISION="main"
+# FROM_FLAX=false
 
-train_nsmc "kogpt-j-base-24L"
-train_nsmc "kogpt-j-350m"
+# train_nsmc "kogpt-j-base-24L"
+# train_nsmc "kogpt-j-350m"
 
-MODEL_OWNER="skt"
-train_nsmc "kogpt2-base-v2"
+# MODEL_OWNER="skt"
+# train_nsmc "kogpt2-base-v2"

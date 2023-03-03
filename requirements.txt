@@ -4,3 +4,6 @@ datasets
 tokenizers
 accelerate
 hydra-core
+huggingface-hub
+evaluate
+sklearn

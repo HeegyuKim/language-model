@@ -22,5 +22,6 @@ train() {
         --logging_steps 50
 }
 
-train "imdb"
-train "emotion"
+# train "imdb"
+# train "emotion"
+train "yelp_polarity"

@@ -32,11 +32,12 @@ function train {
 
 # train "ajoublue-gpt2-base"
 # train "ajoublue-gpt2-base-24L"
+# MODEL_REVISION="master"
 # train "kogpt-j-base"
 # train "kogpt-j-base-24L"
 # DTYPE="bfloat16"
 # train "ajoublue-gpt2-medium"
 # train "kogpt-j-350m"
-
-MODEL_OWNER="skt"
-train "kogpt2-base-v2"
+# MODEL_REVISION="main"
+# MODEL_OWNER="skt"
+# train "kogpt2-base-v2"
