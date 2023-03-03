@@ -41,7 +41,9 @@ class GPTBlockBuilder:
     def build_block(self, dataset, key: str = "text"):
         ids = []
         for item in dataset:
-            next_ids = self.tokenizer.encode(item[key])
+            text = item[key]
+            text = text.replace("\n", self.tokenizer.eos_token)
+            next_ids = self.tokenizer.encode(text)
             ids.append(self.bos_token_id)
             ids.extend(next_ids)
 
@@ -54,6 +56,13 @@ class GPTBlockBuilder:
         tokenizer_name = self.tokenizer.replace("/", "__")
         self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer)
         self.bos_token_id = self.tokenizer.bos_token_id
+
+        # 띄어쓰기로 화자 구분하려고
+        # self.tokenizer.add_special_tokens({
+        #     "pad_token": "<pad>",
+        #     "bos_token": "<s>",
+        #     "eos_token": "</s>",
+        # })
 
         os.makedirs(f"{self.output_dir}/", exist_ok=True)
 
