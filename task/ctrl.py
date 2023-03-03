@@ -2,6 +2,7 @@ from .base import BaseTask
 
 import torch
 import evaluate
+import wandb
 
 from pprint import pprint
 from datasets import load_dataset
@@ -14,15 +15,27 @@ from dataclasses import dataclass
 from random import randint
 from typing import Any, Callable, Dict, List, NewType, Optional, Tuple, Union
 
-from transformers import DataCollatorForSeq2Seq
+from utils.collator import DataCollatorForCausalLM
 
+NEWS_CATEGORIES = [
+    "ENTERTAINMENT", "POLITICS", "WELLNESS", "TRAVEL", "STYLE & BEAUTY",
+    "PARENTING", "HEALTHY LIVING", "QUEER VOICES", "FOOD & DRINK", "BUSINESS"
+    ]
+NEWS_CATEGORIES2id = {k: i for i, k in enumerate(NEWS_CATEGORIES)}
 
 CLASS_LABELS = {
     "emotion": ["sadness", "joy", "love", "anger", "fear", "surprise"],
     "imdb": ["negative", "positive"],
     "yelp_polarity": ["negative", "positive"],
+    "heegyu/news-category-balanced-top10": NEWS_CATEGORIES,
 }
 
+def map_news_category(x):
+    headline = x["headline"]
+    desc = x["short_description"]
+    x["text"] = f"Title: {headline}\nContent: {desc}"
+    x["label"] = NEWS_CATEGORIES2id[x["category"]]
+    return x
 
 class CTRLTask(BaseTask):
     
@@ -35,6 +48,11 @@ class CTRLTask(BaseTask):
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
         with self.accelerator.local_main_process_first():
+            if dataset_name == "heegyu/news-category-balanced-top10":
+                self.dataset = self.dataset.map(
+                    map_news_category, remove_columns=self.dataset["train"].column_names
+                )['train'].train_test_split(0.1, seed=42)
+
             self.mapped_dataset = self.dataset.map(
                 self._encode_data, remove_columns=self.dataset["train"].column_names
             )
@@ -46,7 +64,7 @@ class CTRLTask(BaseTask):
 
     def _encode_data(self, x):
         ctrl_code = self.ctrl_labels[x['label']]
-        text = f"{ctrl_code} " + x["text"]
+        text = f"{ctrl_code} " + x["text"].strip()
         ids = self.tokenizer.encode(
             text, truncation=True, max_length=self.model_args.max_sequence_length
         )
@@ -55,7 +73,7 @@ class CTRLTask(BaseTask):
         
 
     def get_collator(self):
-        return DataCollatorForSeq2Seq(
+        return DataCollatorForCausalLM(
             tokenizer=self.tokenizer,
             max_length=self.model_args.max_sequence_length,
             pad_to_multiple_of=8,
@@ -64,8 +82,6 @@ class CTRLTask(BaseTask):
         )
 
     def training_step(self, batch):
-        for k, v in batch.items():
-            print(k, v.shape)
         out = self.model(**batch)
 
         return {
@@ -94,16 +110,27 @@ class CTRLTask(BaseTask):
         model = self.accelerator.unwrap_model(self.model)
         device = next(model.parameters()).device
         model = model.cpu().eval()
+        all_sequences = []
 
         for label in self.ctrl_labels:
-            prompt = f"{label} this is really "
+            prompt = f"{label} "
             prompt = self.tokenizer.encode(prompt, return_tensors="pt")
 
             sequences = model.generate(prompt, max_new_tokens=32, do_sample=True, num_return_sequences=5)
             sequences = self.tokenizer.batch_decode(sequences)
 
+            for s in sequences:
+                all_sequences.append((label, s))
+
             print(f"test generations for {label}")
             pprint(sequences)
+
+        if wandb.run is not None:
+            table = wandb.Table(['class', 'text'])
+            for seq in all_sequences:
+                table.add_data(*seq)
+
+            wandb.log({'sample_generations': table})
 
         model.to(device)
 

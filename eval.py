@@ -1,5 +1,11 @@
+"""
+
+python eval.py \ 
+    --model heegyu/kogpt-j-base-summarization \
+    --task nia-summ
+
+"""
 from transformers import HfArgumentParser, set_seed
-from utils.collator import SequenceClassificationCollator
 from utils.arguments import TrainingArguments, DataTrainingArguments, ModelArguments
 import numpy as np
 import torch
@@ -10,27 +16,17 @@ from torch.utils.data import Dataset, DataLoader
 
 from typing import List, Dict, Any
 from datasets import disable_caching, load_dataset
-from accelerate import Accelerator
 from tqdm.auto import tqdm
-from accelerate.logging import get_logger
 
 import os
 import evaluate
 from pprint import pprint
 
 from transformers import HfArgumentParser
-from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification
+from task.eval import summarization
 
 TASKS = {
-    "nsmc": nsmc.NSMCTask,
-    "director": director.DirectorTask,
-    "ctrl": ctrl.CTRLTask,
-    "klue-ynat": klue.YNATTask,
-    "klue-sts": klue.STSBinaryTask,
     "nia-summ": summarization.NiaSummarizationTask,
-    "dexpert-toxic": dexpert.ToxicDExpertTask,
-    "dexpert-non-toxic": dexpert.NonToxicDExpertTask,
-    "news-category-top10": sequence_classification.NewsCategoryClassificationTask
     }
 
 
@@ -44,16 +40,13 @@ def main():
     set_seed(args.seed)
 
     os.environ["WANDB_NAME"] = args.run_name
-    accelerator = Accelerator(log_with="wandb")
-    accelerator.init_trackers(
-        args.project,
-        config=args
-    )
+    # accelerator = Accelerator(log_with="wandb")
+    # accelerator.init_trackers(
+    #     args.project,
+    #     config=args
+    # )
     task = TASKS[args.task](accelerator, training_args, data_args, model_args)
     task.setup()
-    if args.do_train:
-        task.train()
-    elif args.do_eval:
-        task.evaluate(0, 0)
+    task.evaluate(0, 0)
 
-    accelerator.end_training()
+    # accelerator.end_training()

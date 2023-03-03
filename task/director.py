@@ -55,11 +55,9 @@ class DirectorTask(BaseTask):
         if self.model_args.director_frozen:
             self.model.freeze_gpt()
 
-                
-        MODEL = f"martin-ha/toxic-comment-model"
-
-        self.toxic_tokenizer = AutoTokenizer.from_pretrained(MODEL)
-        self.toxic_model = AutoModelForSequenceClassification.from_pretrained(MODEL).eval()
+        with self.accelerator.local_main_process_first():
+            self.toxic_tokenizer = AutoTokenizer.from_pretrained(self.model_args.director_eval_classifier)
+            self.toxic_model = AutoModelForSequenceClassification.from_pretrained(self.model_args.director_eval_classifier).eval()
     
     @torch.no_grad()
     def classify_toxic(self, texts):
@@ -70,7 +68,8 @@ class DirectorTask(BaseTask):
 
 
     def prepare_dataset(self):
-        self.dataset = load_dataset("hate_speech18", split="train").train_test_split(0.1, seed=42)
+        # self.dataset = load_dataset("hate_speech18", split="train").train_test_split(0.1, seed=42)
+        self.dataset = load_dataset(self.data_args.dataset_name)
         
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -80,17 +79,22 @@ class DirectorTask(BaseTask):
                 self._encode_data, remove_columns=self.dataset["train"].column_names
             )
 
-        return {
-            'train': self.mapped_dataset['train'],
-            'validation': self.mapped_dataset['test'],
-        }
+        if "validation" not in self.dataset:
+            if "test" not in self.dataset:
+                self.dataset = self.dataset['train'].train_test_split(0.1, seed=42)
+            return {
+                'train': self.mapped_dataset['train'],
+                'validation': self.mapped_dataset['test'],
+            }
+        else:
+            return self.dataset
 
     def _encode_data(self, x):
         ids = self.tokenizer.encode(
             x["text"], truncation=True, max_length=self.model_args.max_sequence_length
         )
         out = {"input_ids": ids, "attention_mask": [1] * len(ids)}
-        out["class_labels"] = x["label"]
+        out["class_labels"] = x["label"] if 'label' in x else x["class"]
         return out
         
 
@@ -105,26 +109,32 @@ class DirectorTask(BaseTask):
 
     def training_step(self, batch):
         out = self.model(**batch, gamma=self.model_args.director_gamma_train)
+        norm_loss = self.model.explicit_normalization_loss(batch['labels'], out.class_logits)
 
         return {
-            'loss': out.loss,
-            'class_loss': out.class_loss
+            'loss': out.loss + norm_loss,
+            'class_loss': out.class_loss,
+            'norm_loss': norm_loss
         }
 
     def evaluation_step(self, batch):
         out = self.model(**batch)
+        norm_loss = self.model.explicit_normalization_loss(batch['labels'], out.class_logits)
 
         return {
             'loss': out.loss,
-            'class_loss': out.class_loss
+            'class_loss': out.class_loss,
+            'norm_loss': norm_loss
         }
 
     def collate_evaluation(self, results: List[Dict]):
         eval_mean_loss = torch.stack(results['loss']).mean().item()
         eval_mean_class_loss = torch.stack(results['class_loss']).mean().item()
+        eval_mean_norm_loss = torch.stack(results['norm_loss']).mean().item()
         eval_results = {
             "loss": eval_mean_loss,
-            "class_loss": eval_mean_class_loss
+            "class_loss": eval_mean_class_loss,
+            "norm_loss": eval_mean_norm_loss
         }
         pprint("evaluation result")
         pprint(eval_results)
@@ -137,15 +147,16 @@ class DirectorTask(BaseTask):
         device = next(model.parameters()).device
         model = model.cpu().eval()
 
-        prompt = "Holy "
+        prompt = "아니 "
         prompt = self.tokenizer.encode(prompt, return_tensors="pt")
 
         all_sequences = []
 
         for positive in [False, True]:
             sequences = model.generate(
-                prompt, max_new_tokens=64, min_length=32, generate_positive=positive,
-                do_sample=True, num_return_sequences=5, gamma=self.model_args.director_gamma_generate)
+                prompt, max_new_tokens=32, min_length=32, generate_positive=positive,
+                no_repeat_ngram_size=4,
+                do_sample=True, num_return_sequences=10, gamma=self.model_args.director_gamma_generate)
             sequences = self.tokenizer.batch_decode(sequences, skip_special_tokens=True)
             toxicities = self.classify_toxic(sequences)
             toxic = "toxic" if positive else "non-toxic"

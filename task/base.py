@@ -46,6 +46,10 @@ class BaseTask:
         self.data_args = data_args
         self.model_args = model_args
 
+    @property
+    def device(self):
+        return next(self.model.parameters()).device
+
     def get_model(self, args):
         model_cls = MODEL_TYPES[args.model_type]
 
@@ -236,11 +240,16 @@ class BaseTask:
             if self.accelerator.is_main_process:
                 self.save_model(f"epoch-{epoch}-last")
             self.accelerator.wait_for_everyone()
+
     def save_model(self, name):
-        unwrapped_model = self.accelerator.unwrap_model(self.model)
-        unwrapped_model.save_pretrained(
-            f"{self.training_args.output_dir}/{self.training_args.run_name}/{name}"
-        )
+        run_name = self.training_args.run_name.replace("/", "__")
+        path = f"{self.training_args.output_dir}/{run_name}/{name}"
+        device = next(self.model.parameters()).device
+        unwrapped_model = self.accelerator.unwrap_model(self.model).cpu()
+        unwrapped_model.save_pretrained(path)
+        self.tokenizer.save_pretrained(path)
+
+        unwrapped_model.to(device)
 
     @torch.no_grad()
     def evaluate(self, epoch, optimizer_step):
@@ -255,6 +264,8 @@ class BaseTask:
         step_outputs = []
         for step, batch in enumerate(epoch_tqdm):
             outputs = self.evaluation_step(batch)
+            if torch.is_tensor(outputs):
+                outputs = {"loss": outputs}
             step_outputs.append(outputs)
 
         eval_outputs = self.accelerator.gather_for_metrics(step_outputs)
