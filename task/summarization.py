@@ -3,20 +3,26 @@ from .base import BaseTask
 
 import torch
 import evaluate
-# from korouge_score import rouge_scorer
+from korouge.korouge_score import rouge_scorer
 
 from pprint import pprint
 from datasets import load_dataset
 from utils.collator import DataCollatorForCausalLM
 from utils.metric import ConfiguredMetric
+from mecab import MeCab
+from collections import defaultdict
+
 
 
 class NiaSummarizationTask(BaseTask):
 
     def prepare_dataset(self):
         self.dataset = load_dataset("heegyu/nia_summary")
-        # self.rouge_scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL", "rougeLsum"])
-        
+        for k, v in self.dataset.items():
+            self.dataset[k] = v.shuffle(seed=42).select(range(10000))
+        self.rouge_scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL", "rougeLsum"])
+        self.mecab = MeCab()
+
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         if self.model.config.pad_token_id is None:
@@ -33,10 +39,10 @@ class NiaSummarizationTask(BaseTask):
         max_length = self.model_args.max_sequence_length
 
         prompt_text = f"내용: {x['text']}\n요약: "
-        summary_text = x['summary'] + self.tokenizer.eos_token
+        summary_text = x['summary']
         
         prompt = self.tokenizer.encode(prompt_text, truncation=True, max_length=max_length)
-        summary = self.tokenizer.encode(summary_text, truncation=True, max_length=max_length)
+        summary = self.tokenizer.encode(summary_text + self.tokenizer.eos_token, truncation=True, max_length=max_length)
 
         if len(prompt) + len(summary) > max_length:
             prompt = prompt[:max_length - len(summary)]
@@ -83,25 +89,42 @@ class NiaSummarizationTask(BaseTask):
 
         return out
 
+    def split_korean(self, texts: List[str]):
+        texts = [" ".join(self.mecab.morphs(x)) for x in texts]
+        return texts
+
     def eval_generate_step(self, batch):
         device = self.device
 
         self.tokenizer.padding_side = "left"
-        prompt = self.tokenizer(batch["prompt_text"], truncation=True, max_length=800)
+        prompt = self.tokenizer(batch["prompt_text"], truncation=True, max_length=800, return_tensors="pt")
         prompt = {k: v.to(device) for k, v in prompt.items()}
+        prompt_len = prompt["input_ids"].shape[1]
 
         prediction = self.model.generate(
             **prompt,
             max_new_tokens=100,
+            min_length=prompt_len + 10,
             num_beams=4,
-            do_sample=False
+            do_sample=False,
+            early_stopping=True
         )
-        prediction = self.tokenizer.batch_decode(prediction)
+        prediction = self.tokenizer.batch_decode(prediction[:,prompt_len:], skip_special_tokens=True)
+        
+        # print(batch["prompt_text"])
+        # print(batch["label_text"])
+        # print(prediction)
 
         # TODO: Mecab
+        prediction = self.split_korean(prediction)
+        labels = self.split_korean(batch["label_text"])
+        scores = defaultdict(list)
+        for l, p in zip(labels, prediction):
+            score = self.rouge_scorer.score(l, p)
+            for k, v in score.items():
+                scores[k].append(v)
 
-        # scores = self.rouge_scorer.score(batch["label_text"], prediction)
-        # scores = {k: torch.tensor(v.fmeasure, device=device) for k, v in scores.items()}
+        scores = {k: torch.tensor(v, device=device) for k, v in dict(scores).items()}
         return scores
 
 

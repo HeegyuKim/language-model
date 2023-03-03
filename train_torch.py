@@ -19,7 +19,7 @@ import evaluate
 from pprint import pprint
 
 from transformers import HfArgumentParser
-from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification
+from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification, dialog
 
 TASKS = {
     "nsmc": nsmc.NSMCTask,
@@ -28,6 +28,7 @@ TASKS = {
     "klue-ynat": klue.YNATTask,
     "klue-sts": klue.STSBinaryTask,
     "nia-summ": summarization.NiaSummarizationTask,
+    "nia-dialog": dialog.NiaDialogTask,
     "dexpert-toxic": dexpert.ToxicDExpertTask,
     "dexpert-non-toxic": dexpert.NonToxicDExpertTask,
     "news-category-top10": sequence_classification.NewsCategoryClassificationTask
