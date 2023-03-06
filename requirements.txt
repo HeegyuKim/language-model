@@ -4,6 +4,9 @@ datasets
 tokenizers
 accelerate
 hydra-core
+evaluate
+python-mecab-ko
+korouge-score
 huggingface-hub
 evaluate
 sklearn

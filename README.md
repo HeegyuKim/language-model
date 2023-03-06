@@ -11,7 +11,13 @@ Name | Model | Size | Hidden | # Layers | # Heads | max_seq_len
 [ajoublue-gpt2-base-24L](https://huggingface.co/heegyu/ajoublue-gpt2-base-24L) | GPT2 | 210M | 768 | 24 | 12 | 1024
 [ajoublue-gpt2-medium](https://huggingface.co/heegyu/ajoublue-gpt2-medium) | GPT2 | 355M | 1024 | 24 | 16 | 1024
 
-이 프로젝트는 아주대학교 파란학기제와 Google TPU Research Cloud의 지원을 받아서 진행되고 있습니다.
+#### 벤치마크 성능
+<img src="image/benchmark0304.png"/><br/>
+- 대화, 요약 평가는 AIHub 대화, 요약 데이터 validation set 중 1만개를 무작위로 선정해서 사용했습니다.
+- 대화는 Top-p=1.0, 요약은 n_beams=4를 사용했습니다.
+
+이 프로젝트는 아주대학교 파란학기제와 Google TPU Research Cloud의 지원을 받아서 진행되고 있습니다.<br/>
+
 
 ### TODO
 - Korean BART-large

@@ -19,7 +19,7 @@ import evaluate
 from pprint import pprint
 
 from transformers import HfArgumentParser
-from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification, gpt
+from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification, dialog, gpt
 
 TASKS = {
     "nsmc": nsmc.NSMCTask,
@@ -28,6 +28,7 @@ TASKS = {
     "klue-ynat": klue.YNATTask,
     "klue-sts": klue.STSBinaryTask,
     "nia-summ": summarization.NiaSummarizationTask,
+    "nia-dialog": dialog.NiaDialogTask,
     "dexpert-toxic": dexpert.ToxicDExpertTask,
     "dexpert-non-toxic": dexpert.NonToxicDExpertTask,
     "news-category-top10": sequence_classification.NewsCategoryClassificationTask,
@@ -58,3 +59,6 @@ def main():
         task.evaluate(0, 0)
 
     accelerator.end_training()
+
+if __name__ == "__main__":
+    main()
