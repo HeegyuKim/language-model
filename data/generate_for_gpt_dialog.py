@@ -92,7 +92,8 @@ if __name__ == "__main__":
         GPTBlockBuilder(
             dataset_paths=paths,
             split=split,
-            tokenizer="heegyu/kogpt-j-base",
+            # tokenizer="heegyu/kogpt-j-base",
+            tokenizer="skt/kogpt2-base-v2",
             block_size=1024,
             output_dir=f"/data/dialog-v1-vocab51k-block1024/{split}",
             cache_dir="/data/.cache"

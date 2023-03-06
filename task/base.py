@@ -111,6 +111,7 @@ class BaseTask:
             epochs=self.training_args.num_train_epochs,
             anneal_strategy="linear",
             pct_start=0.01,
+            div_factor=10,
             final_div_factor=10,
         )
         (

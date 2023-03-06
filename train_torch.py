@@ -19,7 +19,7 @@ import evaluate
 from pprint import pprint
 
 from transformers import HfArgumentParser
-from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification
+from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification, gpt
 
 TASKS = {
     "nsmc": nsmc.NSMCTask,
@@ -30,7 +30,8 @@ TASKS = {
     "nia-summ": summarization.NiaSummarizationTask,
     "dexpert-toxic": dexpert.ToxicDExpertTask,
     "dexpert-non-toxic": dexpert.NonToxicDExpertTask,
-    "news-category-top10": sequence_classification.NewsCategoryClassificationTask
+    "news-category-top10": sequence_classification.NewsCategoryClassificationTask,
+    "gpt": gpt.GPTTask
     }
 
 
