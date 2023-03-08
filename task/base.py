@@ -17,11 +17,12 @@ from accelerate.logging import get_logger
 import os
 import evaluate
 from pprint import pprint
-from transformers import AutoModelForSequenceClassification, AutoModelForCausalLM, AutoConfig
+from transformers import AutoModelForSequenceClassification, AutoModelForCausalLM, AutoConfig, AutoModelForTokenClassification
 from .model.director import DirectorModel
 
 MODEL_TYPES = {
     "sequence-classification": AutoModelForSequenceClassification,
+    "token-classification": AutoModelForTokenClassification,
     "causal-lm": AutoModelForCausalLM,
     "director": DirectorModel
 }

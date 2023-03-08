@@ -19,7 +19,8 @@ import evaluate
 from pprint import pprint
 
 from transformers import HfArgumentParser
-from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification, dialog, gpt
+from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification, dialog, gpt, \
+    detox
 
 TASKS = {
     "nsmc": nsmc.NSMCTask,
@@ -32,6 +33,8 @@ TASKS = {
     "dexpert-toxic": dexpert.ToxicDExpertTask,
     "dexpert-non-toxic": dexpert.NonToxicDExpertTask,
     "news-category-top10": sequence_classification.NewsCategoryClassificationTask,
+    "toxic-token-classification": detox.ToxicSpanDetectionTask,
+    "toxic-sequence-classification": detox.ToxicSequenceClassificationTask,
     "gpt": gpt.GPTTask
     }
 

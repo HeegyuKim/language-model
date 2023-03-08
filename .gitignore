@@ -2,7 +2,7 @@ wandb
 checkpoint/
 huggingface/
 lightning_logs/
-
+korouge/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
