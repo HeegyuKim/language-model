@@ -18,6 +18,19 @@ def remove_speaker(x):
         "text": text
     }
 
+def replace_dialog(text, eos_token):
+    text = text.replace("\n", eos_token + "\n")
+    num_users = 1
+
+    for i in range(5):
+        usr_token = f"<unused{i + 1}>"
+        text = text.replace(f"{i} : ", usr_token)
+
+        if usr_token in text:
+            num_users = i + 1
+
+    return text, num_users
+
 @dataclass
 class GPTBlockBuilder:
     dataset_paths: List[str]
@@ -42,7 +55,7 @@ class GPTBlockBuilder:
         ids = []
         for item in dataset:
             text = item[key]
-            text = text.replace("\n", self.tokenizer.eos_token)
+            text, num_useres = replace_dialog(text, self.tokenizer.eos_token)
             next_ids = self.tokenizer.encode(text)
             ids.append(self.bos_token_id)
             ids.extend(next_ids)
@@ -56,6 +69,9 @@ class GPTBlockBuilder:
         tokenizer_name = self.tokenizer.replace("/", "__")
         self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer)
         self.bos_token_id = self.tokenizer.bos_token_id
+
+        special_tokens_dict = {'additional_special_tokens': [f'<unused{i}>' for i in range(1, 10)]}
+        num_added_toks = self.tokenizer.add_special_tokens(special_tokens_dict)
 
         # 띄어쓰기로 화자 구분하려고
         # self.tokenizer.add_special_tokens({
@@ -92,8 +108,8 @@ if __name__ == "__main__":
         GPTBlockBuilder(
             dataset_paths=paths,
             split=split,
-            # tokenizer="heegyu/kogpt-j-base",
-            tokenizer="skt/kogpt2-base-v2",
+            tokenizer="heegyu/kogpt-j-base",
+            # tokenizer="skt/kogpt2-base-v2",
             block_size=1024,
             output_dir=f"/data/dialog-v1-vocab51k-block1024/{split}",
             cache_dir="/data/.cache"

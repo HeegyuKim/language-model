@@ -25,21 +25,21 @@ function train {
         --per_device_train_batch_size="1" \
         --per_device_eval_batch_size="1" \
         --gradient_accumulation_steps=8 \
-        --learning_rate="1e-4" \
+        --learning_rate="5e-5" \
         --overwrite_output_dir \
-        --num_train_epochs="3" \
+        --num_train_epochs="30" \
         --logging_steps="500" \
-        --save_strategy="last" \
+        --save_strategy="last,epoch-9,epoch-19" \
         --eval_strategy="epoch"
 }
 
 # REVISION="master"
 # train "heegyu/kogpt-j-base"
-train_nsmc "skt/kogpt2-base-v2"
+# train_nsmc "skt/kogpt2-base-v2"
 # train "heegyu/kogpt-j-base-24L"
-# train "heegyu/ajoublue-gpt2-base"
+train "heegyu/ajoublue-gpt2-base"
 # train "heegyu/ajoublue-gpt2-base-24L"
 
-# DTYPE="bfloat16"
+DTYPE="bfloat16"
 # train "heegyu/kogpt-j-350m"
-# train "heegyu/ajoublue-gpt2-medium"
+train "heegyu/ajoublue-gpt2-medium"
