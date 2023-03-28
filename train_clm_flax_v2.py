@@ -578,8 +578,7 @@ def main():
         )
     else:
         model = FlaxAutoModelForCausalLM.from_config(
-            config, seed=training_args.seed, dtype=getattr(jnp, model_args.dtype),
-            revision=model_args.revision,
+            config, seed=training_args.seed, dtype=getattr(jnp, model_args.dtype)
         )
 
 
