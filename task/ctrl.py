@@ -23,11 +23,17 @@ NEWS_CATEGORIES = [
     ]
 NEWS_CATEGORIES2id = {k: i for i, k in enumerate(NEWS_CATEGORIES)}
 
+BBC_NEWS = [
+    "tech", "business", "sport", "entertainment", "politics"
+]
+BBC_NEWS_CATEGORIES2id = {k: i for i, k in enumerate(BBC_NEWS)}
+
 CLASS_LABELS = {
     "emotion": ["sadness", "joy", "love", "anger", "fear", "surprise"],
     "imdb": ["negative", "positive"],
     "yelp_polarity": ["negative", "positive"],
     "heegyu/news-category-balanced-top10": NEWS_CATEGORIES,
+    "SetFit/bbc-news": BBC_NEWS,
 }
 
 def map_news_category(x):
@@ -64,7 +70,7 @@ class CTRLTask(BaseTask):
 
     def _encode_data(self, x):
         ctrl_code = self.ctrl_labels[x['label']]
-        text = f"{ctrl_code} " + x["text"].strip()
+        text = f"topic: {ctrl_code}\n" + x["text"].strip().replace("\\xa0", '') + self.tokenizer.eos_token
         ids = self.tokenizer.encode(
             text, truncation=True, max_length=self.model_args.max_sequence_length
         )
@@ -113,11 +119,11 @@ class CTRLTask(BaseTask):
         all_sequences = []
 
         for label in self.ctrl_labels:
-            prompt = f"{label} "
+            prompt = f"topic: {label}\n"
             prompt = self.tokenizer.encode(prompt, return_tensors="pt")
 
-            sequences = model.generate(prompt, max_new_tokens=32, do_sample=True, num_return_sequences=5)
-            sequences = self.tokenizer.batch_decode(sequences)
+            sequences = model.generate(prompt, max_new_tokens=64, do_sample=True, num_return_sequences=5, early_stopping=True)
+            sequences = self.tokenizer.batch_decode(sequences, skip_special_tokens=True)
 
             for s in sequences:
                 all_sequences.append((label, s))

@@ -20,7 +20,7 @@ from pprint import pprint
 
 from transformers import HfArgumentParser
 from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification, dialog, gpt, \
-    detox
+    detox, koalpaca
 
 TASKS = {
     "nsmc": nsmc.NSMCTask,
@@ -35,7 +35,9 @@ TASKS = {
     "news-category-top10": sequence_classification.NewsCategoryClassificationTask,
     "toxic-token-classification": detox.ToxicSpanDetectionTask,
     "toxic-sequence-classification": detox.ToxicSequenceClassificationTask,
-    "gpt": gpt.GPTTask
+    "gpt": gpt.GPTTask,
+    "gpt-finetuning": gpt.CausalFineTuningTask,
+    "koalpaca": koalpaca.KoAlpacaTask
     }
 
 
