@@ -17,7 +17,7 @@ function train {
         --model_name_or_path $MODEL_NAME \
         --model_type $MODEL_TYPE \
         --task koalpaca \
-        --num_train_epochs 10 \
+        --num_train_epochs 5 \
         --per_device_train_batch_size 8 \
         --per_device_eval_batch_size 8 \
         --max_sequence_length 256 \
