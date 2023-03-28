@@ -3,7 +3,7 @@ from pprint import pprint
 
 
 print('start model loading')
-model_name = '/data/checkpoint/dialog/heegyu/ajoublue-gpt2-medium/checkpoint-epoch-17480-last/'
+model_name = '../checkpoint/gpt-finetuning/heegyu__ajoublue-gpt2-medium-heegyu__naver_webnovel/epoch-9'
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = FlaxAutoModelForCausalLM.from_pretrained(model_name)
 
@@ -17,8 +17,8 @@ generation_args = dict(
     max_new_tokens=16,
     min_new_tokens=8,
     do_sample=False,
-    # top_p=0.7,
-    num_beams=4,
+    top_p=0.7,
+    # num_beams=4,
     early_stopping=True
 )
 
@@ -43,9 +43,9 @@ def generate(prompt, **kwargs):
 #     **generation_args
 # ))
 print(generate(
-    ["0 : **는 게임 좋아하니</s>1 :",
-    "0 : 어제 강남에서 살인사건 났대 ㅜㅜ 너무 무서워</s>1 : 헐 왜? 무슨 일 있었어?</s>0 : 사진보니까 막 피흘리는 사람있고 경찰들이 떠서 제압하고 난리도 아니었다던데??</s>1 :",
-    "0 : 자기야 어제는 나한테 왜 그랬어?</s>1 : 뭔 일 있었어?</s>0 : 어떻게 나한테 말도 없이 그럴 수 있어? 나 진짜 실망했어</s>1 : "],
+    [
+        "그녀가 내게 말했다\n\"안녕?\""
+    ]
     **generation_args
 ))
 

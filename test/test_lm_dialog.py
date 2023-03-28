@@ -1,7 +1,7 @@
 from transformers import pipeline
 
 print('start model loading')
-model_name = '/data/checkpoint/dialog/heegyu/ajoublue-gpt2-medium/checkpoint-epoch-17480-last/'
+model_name = '../checkpoint/gpt2-dialog/skt__kogpt2-base-v2-/epoch-2-last/'
 generator = pipeline(
     'text-generation',
     model=model_name,

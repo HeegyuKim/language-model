@@ -197,5 +197,4 @@ class DataCollatorForCausalLM:
 
         features.update(padding_features)
 
-
-        return features
+        return dict(features)
