@@ -565,7 +565,8 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-    print(model_args.revision)
+    special_tokens_dict = {'additional_special_tokens': [f'<unused{i}>' for i in range(1, 10)]}
+    num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
     
     if model_args.model_name_or_path:
         model = FlaxAutoModelForCausalLM.from_pretrained(
@@ -578,8 +579,7 @@ def main():
         )
     else:
         model = FlaxAutoModelForCausalLM.from_config(
-            config, seed=training_args.seed, dtype=getattr(jnp, model_args.dtype),
-            revision=model_args.revision,
+            config, seed=training_args.seed, dtype=getattr(jnp, model_args.dtype)
         )
 
 
@@ -799,6 +799,8 @@ def main():
 
     train_time = 0
     train_metrics = []
+    save_strategy = training_args.save_strategy.split(",")
+
     if training_args.do_train:
         epochs = tqdm(range(num_epochs), desc="Epoch ... ", position=0)
         for epoch in epochs:
@@ -846,14 +848,14 @@ def main():
                     evaluate(cur_step, epochs)
 
 
-                if training_args.save_strategy == "steps" and cur_step % training_args.save_steps == 0 and cur_step > 0:
+                if "steps" in save_strategy and cur_step % training_args.save_steps == 0 and cur_step > 0:
                     # save checkpoint after each epoch and push checkpoint to the hub
                     if jax.process_index() == 0:
                         params = jax.device_get(unreplicate(state.params))
                         model.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}", params=params)
                         tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-{cur_step}")
             
-            if training_args.save_strategy == "epoch":
+            if f"epoch-{epoch}" in save_strategy or "epoch" in save_strategy:
                 # save checkpoint after each epoch and push checkpoint to the hub
                 if jax.process_index() == 0:
                     params = jax.device_get(unreplicate(state.params))
@@ -863,7 +865,7 @@ def main():
             if training_args.do_eval and training_args.eval_strategy == "epoch":
                 evaluate(cur_step, epochs)
 
-        if training_args.save_strategy == "last" and jax.process_index() == 0:
+        if "last" in save_strategy and jax.process_index() == 0:
             # save checkpoint after each epoch and push checkpoint to the hub
             params = jax.device_get(unreplicate(state.params))
             model.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}-last", params=params)

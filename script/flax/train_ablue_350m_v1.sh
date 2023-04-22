@@ -21,6 +21,6 @@ python3 train_clm_flax_v2.py \
     --warmup_steps="1000" \
     --adam_beta1="0.9" --adam_beta2="0.98" --weight_decay="0.01" \
     --overwrite_output_dir \
-    --num_train_epochs="5" \
+    --num_train_epochs="10" \
     --logging_steps="2500" \
     --save_strategy="epoch"
