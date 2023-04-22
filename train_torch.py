@@ -37,7 +37,9 @@ TASKS = {
     "toxic-sequence-classification": detox.ToxicSequenceClassificationTask,
     "gpt": gpt.GPTTask,
     "gpt-finetuning": gpt.CausalFineTuningTask,
-    "koalpaca": koalpaca.KoAlpacaTask
+    "gpt-lyrics": gpt.LyricsGPTTask,
+    "koalpaca": koalpaca.KoAlpacaTask,
+    "gorani": gpt.GoraniTask
     }
 
 

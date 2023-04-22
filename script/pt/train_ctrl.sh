@@ -25,6 +25,6 @@ train() {
 }
 
 # train "imdb"
-train "emotion" 8 64
-# train "yelp_polarity"
-train "SetFit/bbc-news" 1 400
+# train "emotion" 8 64
+train "yelp_polarity" 8 256
+# train "SetFit/bbc-news" 1 400
