@@ -17,9 +17,10 @@ train() {
         --model_type $MODEL_TYPE \
         --task $TASK \
         --per_device_train_batch_size 1 \
+        --per_device_eval_batch_size 1 \
         --gradient_accumulation_steps $BATCH_SIZE \
         --num_train_epochs 10 \
-        --max_sequence_length 1024 \
+        --max_sequence_length 256 \
         --save_strategy epoch \
         --logging_steps 50
 }
