@@ -22,8 +22,8 @@ train() {
         --per_device_eval_batch_size 1 \
         --learning_rate $LR \
         --gradient_accumulation_steps $BATCH_SIZE \
+        --max_sequence_length 1024 \
         --num_train_epochs 10 \
-        --max_sequence_length 512 \
         --save_strategy epoch \
         --logging_steps 50
 }

@@ -58,9 +58,11 @@ class CausalFineTuningTask(BaseTask):
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
         with self.accelerator.local_main_process_first():
-            self.mapped_dataset = self.dataset.map(
+            dataset = self.dataset.map(
                 self._encode_data, remove_columns=self.dataset["train"].column_names
-            )
+            ).filter(self._filter_instance, load_from_cache_file=True)
+
+            self.mapped_dataset = dataset
 
         return {
             'train': self.mapped_dataset['train'],
@@ -74,7 +76,9 @@ class CausalFineTuningTask(BaseTask):
         )
         out = {"input_ids": ids, "attention_mask": [1] * len(ids), "labels": ids}
         return out
-        
+    
+    def _filter_instance(self, x):
+        return True
 
     def get_collator(self):
         return DataCollatorForCausalLM(
@@ -139,7 +143,7 @@ class LyricsGPTTask(CausalFineTuningTask):
 
 class GoraniTask(CausalFineTuningTask):
     def prepare_dataset(self):
-        self.dataset = load_dataset("heegyu/open-korean-instructions", split="train").train_test_split(0.05)
+        self.dataset = load_dataset("heegyu/open-korean-instructions", split="train", revision='singleturn').train_test_split(0.05)
         
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -194,3 +198,9 @@ class GoraniTask(CausalFineTuningTask):
         # print(len(all_ids), len(all_labels))
         out = {"input_ids": all_ids, "attention_mask": [1] * len(all_ids), "labels": all_labels}
         return out
+
+    def _filter_instance(self, x):
+        labels = x['labels']
+        loss_labels = [l for l in labels if l != -100]
+
+        return len(loss_labels) > 0
