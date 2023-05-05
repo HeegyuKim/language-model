@@ -100,11 +100,11 @@ class BaseTask:
             datasets.get('validation'),
         )
 
-        steps_per_epoch = len(datasets.get('train')) // (
+        steps_per_epoch = len(datasets.get('train')) / (
             self.training_args.per_device_train_batch_size
             * self.training_args.gradient_accumulation_steps
         )
-        total_steps = self.training_args.num_train_epochs * steps_per_epoch
+        total_steps = int(self.training_args.num_train_epochs * steps_per_epoch)
         optimizer = optim.AdamW(self.model.parameters(), lr=self.training_args.learning_rate)
 
         # lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
