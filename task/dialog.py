@@ -154,8 +154,10 @@ class NiaDialogTaskV2(CausalFineTuningTask):
 
         with self.accelerator.local_main_process_first():
             dataset = self.dataset.map(
-                self._encode_data, remove_columns=self.dataset["train"].column_names
-            )
+                self._encode_data, 
+                remove_columns=self.dataset["train"].column_names,
+                load_from_cache_file=True
+            ).filter(self._filter_instance, load_from_cache_file=True)
 
             self.mapped_dataset = dataset
 
@@ -209,3 +211,9 @@ class NiaDialogTaskV2(CausalFineTuningTask):
         # print(len(all_ids), len(all_labels))
         out = {"input_ids": all_ids, "attention_mask": [1] * len(all_ids), "labels": all_labels}
         return out
+    
+    def _filter_instance(self, x):
+        labels = x['labels']
+        loss_labels = [l for l in labels if l != -100]
+
+        return len(loss_labels) > 0
