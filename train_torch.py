@@ -30,6 +30,7 @@ TASKS = {
     "klue-sts": klue.STSBinaryTask,
     "nia-summ": summarization.NiaSummarizationTask,
     "nia-dialog": dialog.NiaDialogTask,
+    "nia-dialog-v2": dialog.NiaDialogTaskV2,
     "dexpert-toxic": dexpert.ToxicDExpertTask,
     "dexpert-non-toxic": dexpert.NonToxicDExpertTask,
     "news-category-top10": sequence_classification.NewsCategoryClassificationTask,

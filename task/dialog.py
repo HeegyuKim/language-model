@@ -4,7 +4,9 @@ from .base import BaseTask
 import torch
 import evaluate
 from korouge.korouge_score import rouge_scorer
+from .gpt import CausalFineTuningTask
 
+import re
 from pprint import pprint
 from datasets import load_dataset
 from utils.collator import DataCollatorForCausalLM
@@ -140,3 +142,70 @@ class NiaDialogTask(BaseTask):
         pprint("evaluation result")
         pprint(eval_results)
         return eval_results
+
+
+
+class NiaDialogTaskV2(CausalFineTuningTask):
+    def prepare_dataset(self):
+        self.dataset = load_dataset("heegyu/open-korean-chat")
+        
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        with self.accelerator.local_main_process_first():
+            dataset = self.dataset.map(
+                self._encode_data, remove_columns=self.dataset["train"].column_names
+            )
+
+            self.mapped_dataset = dataset
+
+        return {
+            'train': self.mapped_dataset['train'],
+            'validation': self.mapped_dataset['test'],
+        }
+
+    def _encode_data(self, x):
+        usr, bot, sys = '0 : ','<bot>', None
+        all_ids, all_labels = [], []
+        # speaker_tokens = [r'<usr>',r'<bot>',r'<sys>']
+        speaker_tokens = [r'0 : ', r'1 : ']
+        split_points = [m.start(0) for r in speaker_tokens for m in re.finditer(r, x["dialog"])]
+        split_points.sort()
+        split_points.append(-1)
+
+        max_length = self.model_args.max_sequence_length
+        for i in range(len(split_points) - 1):
+            begin, end = split_points[i], split_points[i + 1]
+            uttr = x['dialog'][begin:end].strip()
+            if len(uttr) == 0:
+                continue
+
+            uttr = uttr.replace("0 : ", "<usr> ")
+            uttr = uttr.replace("1 : ", "<bot> ")
+            
+            ids = self.tokenizer.encode(
+                uttr, truncation=True, max_length=max_length
+            )
+
+
+            if uttr.startswith(bot):
+                ids.append(self.tokenizer.eos_token_id)
+                labels = ids
+            else:
+                labels = [-100] * len(ids)
+            
+            all_ids.extend(ids)
+            all_labels.extend(labels)
+
+            # print(uttr)
+            # print(tokenizer.decode(ids))
+
+        if len(all_ids) > max_length:
+            all_ids = all_ids[:max_length]
+        if len(all_labels) > max_length:
+            all_labels = all_labels[:max_length]
+
+        # if len(all_ids) > max_length:
+        # print(len(all_ids), len(all_labels))
+        out = {"input_ids": all_ids, "attention_mask": [1] * len(all_ids), "labels": all_labels}
+        return out
