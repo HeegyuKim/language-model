@@ -1,4 +1,6 @@
+import transformers
 from transformers import HfArgumentParser, set_seed
+
 from utils.collator import SequenceClassificationCollator
 from utils.arguments import TrainingArguments, DataTrainingArguments, ModelArguments
 import numpy as np
@@ -98,23 +100,29 @@ class BaseTask:
             datasets.get('validation'),
         )
 
-        steps_per_epoch = len(datasets.get('train')) // (
+        steps_per_epoch = len(datasets.get('train')) / (
             self.training_args.per_device_train_batch_size
             * self.training_args.gradient_accumulation_steps
         )
-
+        total_steps = int(self.training_args.num_train_epochs * steps_per_epoch)
         optimizer = optim.AdamW(self.model.parameters(), lr=self.training_args.learning_rate)
 
-        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.training_args.learning_rate,
-            steps_per_epoch=steps_per_epoch,
-            epochs=self.training_args.num_train_epochs,
-            anneal_strategy="linear",
-            pct_start=0.01,
-            div_factor=10,
-            final_div_factor=10,
-        )
+        # lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        #     optimizer,
+        #     max_lr=self.training_args.learning_rate,
+        #     steps_per_epoch=steps_per_epoch,
+        #     epochs=self.training_args.num_train_epochs,
+        #     anneal_strategy="linear",
+        #     pct_start=0.01,
+        #     div_factor=10,
+        #     final_div_factor=10,
+        # )
+        lr_scheduler = transformers.get_linear_schedule_with_warmup(
+            optimizer, 
+            total_steps // 20, # 0.05 
+            total_steps
+            )
+
         (
             self.model,
             self.optimizer,
