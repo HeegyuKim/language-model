@@ -859,8 +859,8 @@ def main():
                 # save checkpoint after each epoch and push checkpoint to the hub
                 if jax.process_index() == 0:
                     params = jax.device_get(unreplicate(state.params))
-                    model.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}", params=params)
-                    tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{cur_step}")
+                    model.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{epoch}", params=params)
+                    tokenizer.save_pretrained(f"{training_args.output_dir}/checkpoint-epoch-{epoch}")
 
             if training_args.do_eval and training_args.eval_strategy == "epoch":
                 evaluate(cur_step, epochs)
