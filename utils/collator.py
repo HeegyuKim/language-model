@@ -198,3 +198,16 @@ class DataCollatorForCausalLM:
         features.update(padding_features)
 
         return dict(features)
+
+
+@dataclass
+class RewardModelCollator(object):
+    tokenizer: PreTrainedTokenizerBase
+    padding_side: str = "right"
+    padding: Union[bool, str, PaddingStrategy] = True
+    max_length: Optional[int] = None
+    pad_to_multiple_of: Optional[int] = None
+    return_tensors: str = "pt"
+    is_encoder_decoder: bool = False
+    # padding_feature_keys: List[str] = field(
+    #     default_factory

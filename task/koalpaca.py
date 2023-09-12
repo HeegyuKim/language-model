@@ -13,15 +13,15 @@ from collections import defaultdict
 class KoAlpacaTask(BaseTask):
 
     def prepare_dataset(self):
-        self.dataset = load_dataset("Bingsu/ko_alpaca_data", split="train") \
-                            .train_test_split(0.1)
         
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         if self.model.config.pad_token_id is None:
             self.model.config.pad_token_id = self.tokenizer.pad_token_id
 
-        with self.accelerator.local_main_process_first():
+        with self.accelerator.main_process_first():
+            self.dataset = load_dataset("Bingsu/ko_alpaca_data", split="train") \
+                                .train_test_split(0.1)
             self.mapped_dataset = self.dataset.map(
                 self._encode_data, remove_columns=self.dataset["train"].column_names, 
             )

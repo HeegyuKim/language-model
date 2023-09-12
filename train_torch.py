@@ -15,11 +15,10 @@ from tqdm.auto import tqdm
 from accelerate.logging import get_logger
 
 import os
-import evaluate
 from pprint import pprint
 
 from transformers import HfArgumentParser
-from task import nsmc, director, ctrl, klue, summarization, dexpert, sequence_classification, dialog, gpt, \
+from task import nsmc, director, ctrl, klue, dexpert, sequence_classification,  gpt, \
     detox, koalpaca
 
 TASKS = {
@@ -28,9 +27,9 @@ TASKS = {
     "ctrl": ctrl.CTRLTask,
     "klue-ynat": klue.YNATTask,
     "klue-sts": klue.STSBinaryTask,
-    "nia-summ": summarization.NiaSummarizationTask,
-    "nia-dialog": dialog.NiaDialogTask,
-    "nia-dialog-v2": dialog.NiaDialogTaskV2,
+    # "nia-summ": summarization.NiaSummarizationTask,
+    # "nia-dialog": dialog.NiaDialogTask,
+    # "nia-dialog-v2": dialog.NiaDialogTaskV2,
     "dexpert-toxic": dexpert.ToxicDExpertTask,
     "dexpert-non-toxic": dexpert.NonToxicDExpertTask,
     "news-category-top10": sequence_classification.NewsCategoryClassificationTask,

@@ -32,3 +32,5 @@ train() {
         --eval_strategy="epoch"
 
 }
+
+train 5e-5 4 1
