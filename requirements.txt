@@ -3,6 +3,7 @@ wandb
 datasets
 tokenizers
 accelerate
+opt_einsum
 hydra-core
 evaluate
 python-mecab-ko

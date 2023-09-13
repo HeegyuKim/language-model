@@ -22,17 +22,18 @@ function train {
         --from_flax $FROM_FLAX \
         --num_train_epochs 3 \
         --num_labels 1 \
+        --gradient_accumulation_steps 16 \
         --per_device_train_batch_size 1 \
         --per_device_eval_batch_size 1 \
         --max_sequence_length 1024 \
         --save_strategy no \
-        --logging_steps 100
+        --logging_steps 1
 }
 
 MODEL_OWNER="EleutherAI"
 train "pythia-160m-deduped"
 train "pythia-410m-deduped"
 
-MODEL_OWNER="heegyu"
-train "WizardVicuna-Uncensored-pythia-160m-deduped"
-train "WizardVicuna-pythia-410m-deduped"
+# MODEL_OWNER="heegyu"
+# train "WizardVicuna-Uncensored-pythia-160m-deduped"
+# train "WizardVicuna-pythia-410m-deduped"
