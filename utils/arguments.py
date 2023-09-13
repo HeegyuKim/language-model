@@ -185,6 +185,11 @@ class ModelArguments:
             "help": "max sequence length, default to model's max seq length"
             }
     )
+    decoder_max_sequence_length: Optional[int] = field(
+        default=None, metadata={
+            "help": "max sequence length, default to model's max seq length"
+            }
+    )
     model_type: Optional[str] = field(
         default="causal-lm",
         metadata={

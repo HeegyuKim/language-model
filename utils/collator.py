@@ -271,3 +271,75 @@ class RewardModelCollator(object):
             "rejected": self.collate_and_pad(rejected),
         }
         
+@dataclass
+class Seq2SeqRewardModelCollator(object):
+    tokenizer: PreTrainedTokenizerBase
+    padding: Union[bool, str, PaddingStrategy] = True
+    max_length: Optional[int] = None
+    decoder_max_length: Optional[int] = None
+    pad_to_multiple_of: Optional[int] = None
+    return_tensors: str = "pt"
+    is_encoder_decoder: bool = False
+    
+    padding_feature_keys: List[str] = field(
+        default_factory=lambda: [
+            "input_ids",
+            "decoder_input_ids",
+            "attention_mask",
+            "decoder_attention_mask",
+        ]
+    )
+
+    def __collate(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        out = defaultdict(list)
+        for item in features:
+            for k, v in item.items():
+                out[k].append(v)
+        return out
+
+    def collate_and_pad(self, features):
+        features = self.__collate(features)
+        enc_features, dec_features = {}, {}
+
+        for k in self.padding_feature_keys:
+            if k in features:
+                if "decoder" in k:
+                    dec_features[k.replace("decoder_", "")] = features.get(k)
+                else:
+                    enc_features[k] = features.get(k)
+
+        dec_batch = self.tokenizer.pad(
+            dec_features,
+            padding=self.padding,
+            max_length=self.decoder_max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors=self.return_tensors,
+        )
+        enc_batch = self.tokenizer.pad(
+            enc_features,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors=self.return_tensors,
+        )
+        dec_batch = {f"decoder_{k}": v for k, v in dec_batch.items()}
+
+        batch = {**dec_batch, **enc_batch}
+        for k in features.keys():
+            if k not in self.padding_feature_keys:
+                batch[k] = features[k]
+
+        return batch
+
+    def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        chosens, rejected = [], []
+        
+        for feature in features:
+            chosens.append(feature["chosen"])
+            rejected.append(feature["rejected"])
+        
+        return {
+            "chosen": self.collate_and_pad(chosens),
+            "rejected": self.collate_and_pad(rejected),
+        }
+        

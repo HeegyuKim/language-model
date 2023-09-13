@@ -222,6 +222,7 @@ class BaseTask:
                         metrics["optimizer_step"] = optimizer_step
                         metrics["train/learning_rate"] = self.lr_scheduler.scheduler._last_lr[0]
                         metrics["train/loss"] = loss.item() * self.training_args.gradient_accumulation_steps
+                        pprint(metrics)
                         self.accelerator.log(metrics)
 
                     epoch_tqdm.set_description(

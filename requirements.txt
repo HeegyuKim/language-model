@@ -9,4 +9,4 @@ python-mecab-ko
 korouge-score
 huggingface-hub
 evaluate
-sklearn
+scikit-learn

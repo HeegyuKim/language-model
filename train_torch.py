@@ -42,7 +42,8 @@ TASKS = {
     "gpt-lyrics": gpt.LyricsGPTTask,
     "koalpaca": koalpaca.KoAlpacaTask,
     "gorani": gpt.GoraniTask,
-    "reward": reward.RewardTask
+    "reward": reward.RewardTask,
+    "seq2seq-rank-reward": reward.Seq2SeqRankRewardTask,
     }
 
 
