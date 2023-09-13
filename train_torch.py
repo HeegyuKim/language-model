@@ -1,3 +1,6 @@
+import os
+os.environ["XRT_TPU_CONFIG"]="localservice;0;localhost:51011"
+
 from transformers import HfArgumentParser, set_seed
 from utils.collator import SequenceClassificationCollator
 from utils.arguments import TrainingArguments, DataTrainingArguments, ModelArguments
@@ -14,12 +17,11 @@ from accelerate import Accelerator
 from tqdm.auto import tqdm
 from accelerate.logging import get_logger
 
-import os
 from pprint import pprint
 
 from transformers import HfArgumentParser
 from task import nsmc, director, ctrl, klue, dexpert, sequence_classification,  gpt, \
-    detox, koalpaca
+    detox, koalpaca, reward
 
 TASKS = {
     "nsmc": nsmc.NSMCTask,
@@ -39,7 +41,8 @@ TASKS = {
     "gpt-finetuning": gpt.CausalFineTuningTask,
     "gpt-lyrics": gpt.LyricsGPTTask,
     "koalpaca": koalpaca.KoAlpacaTask,
-    "gorani": gpt.GoraniTask
+    "gorani": gpt.GoraniTask,
+    "reward": reward.RewardTask
     }
 
 

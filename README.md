@@ -77,6 +77,10 @@ from transformers.testing_utils import CaptureLogger
 
 ### Pytorch VM Setup
 ```
+pip install torch~=2.0.0 https://storage.googleapis.com/tpu-pytorch/wheels/tpuvm/torch_xla-2.0-cp38-cp38-linux_x86_64.whl
+```
+
+```
 # .bashrc에다가 넣어도 안되고 매번 해줘야한다 이유가 뭘까..
 export XRT_TPU_CONFIG="localservice;0;localhost:51011"
 export USE_Torch=True

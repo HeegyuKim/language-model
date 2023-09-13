@@ -2,15 +2,14 @@ from typing import List, Dict
 from .base import BaseTask
 
 import torch
+import torch.nn.functional as F
 import evaluate
 
 from pprint import pprint
 from datasets import load_dataset
-from utils.collator import SequenceClassificationCollator
+from utils.collator import RewardModelCollator
 from utils.metric import ConfiguredMetric
 
-from task.base import DatasetArguments
-from ..base import Dataset
 from datasets import load_dataset
 
 
@@ -34,10 +33,12 @@ class RewardTask(BaseTask):
             self.tokenizer.pad_token = self.tokenizer.eos_token
         if self.model.config.pad_token_id is None:
             self.model.config.pad_token_id = self.tokenizer.pad_token_id
+        
+        self.tokenizer.truncation_side = "left"
 
         with self.accelerator.local_main_process_first():
             dataset = load_dataset("heegyu/hh-rlhf-vicuna-format")
-            
+
             if args.max_train_samples:
                 dataset["train"] = dataset["train"].select(range(args.max_train_samples))
             if args.max_eval_samples:
@@ -47,11 +48,11 @@ class RewardTask(BaseTask):
 
         return {
             "train": dataset["train"],
-            "test": dataset["test"]
+            "validation": dataset["test"]
         }
 
     def encode_item(self, prefix, text):
-        batch = self.tokenizer(text, truncation=True, max_length=self.args.max_seq_length)
+        batch = self.tokenizer(text, truncation=True, max_length=self.model_args.max_sequence_length)
         # return {f"{prefix}{k}": v for k, v in batch.items()}
         return batch
     
@@ -68,7 +69,7 @@ class RewardTask(BaseTask):
         )
 
     def get_collator(self):
-        return SequenceClassificationCollator(
+        return RewardModelCollator(
             tokenizer=self.tokenizer,
             max_length=self.model_args.max_sequence_length,
             pad_to_multiple_of=8,
@@ -76,7 +77,7 @@ class RewardTask(BaseTask):
             return_tensors="pt",
         )
 
-    def step(self, batch, step):
+    def step(self, batch):
         # chosen = {k.replace("chosen_", ""): v for k, v in batch.items() if k.startswith("chosen_")}
         # rejected = {k.replace("rejected_", ""): v for k, v in batch.items() if k.startswith("rejected_")}
 
@@ -86,8 +87,8 @@ class RewardTask(BaseTask):
         # for k, v in batch["rejected"].items():
         #     print("rejected", k, v.shape)
 
-        chosen = self.model(**convert_dict_tensor_devices(batch["chosen"], self.device)).logits.squeeze(1)
-        rejected = self.model(**convert_dict_tensor_devices(batch["rejected"], self.device)).logits.squeeze(1)
+        chosen = self.model(**batch["chosen"]).logits.squeeze(1)
+        rejected = self.model(**batch["rejected"]).logits.squeeze(1)
 
         loss = -F.logsigmoid(chosen - rejected).mean()
         # print(loss)
@@ -100,10 +101,10 @@ class RewardTask(BaseTask):
         )
 
     def training_step(self, batch):
-        return self.step(**batch)['loss']
+        return self.step(batch)['loss']
 
     def evaluation_step(self, batch):
-        return self.step(**batch)
+        return self.step(batch)
 
     def collate_evaluation(self, results: List[Dict]):
         loss = torch.stack(results['loss']).mean().item()

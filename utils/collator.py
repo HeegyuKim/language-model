@@ -198,7 +198,7 @@ class DataCollatorForCausalLM:
         features.update(padding_features)
 
         return dict(features)
-
+        
 
 @dataclass
 class RewardModelCollator(object):
@@ -210,4 +210,64 @@ class RewardModelCollator(object):
     return_tensors: str = "pt"
     is_encoder_decoder: bool = False
     # padding_feature_keys: List[str] = field(
-    #     default_factory
+    #     default_factory=lambda: [
+    #         "chosen_input_ids","rejected_input_ids",
+    #         "chosen_decoder_input_ids","rejected_decoder_input_ids",
+    #         "chosen_token_type_ids","rejected_token_type_ids",
+    #         "chosen_attention_mask","rejected_attention_mask",
+    #         "chosen_decoder_attention_mask","rejected_decoder_attention_mask",
+    #     ]
+    # )
+    
+    padding_feature_keys: List[str] = field(
+        default_factory=lambda: [
+            "input_ids",
+            "decoder_input_ids",
+            "token_type_ids",
+            "attention_mask",
+            "decoder_attention_mask",
+        ]
+    )
+
+    def __collate(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        out = defaultdict(list)
+        for item in features:
+            for k, v in item.items():
+                out[k].append(v)
+        return out
+
+    def collate_and_pad(self, features):
+        features = self.__collate(features)
+        padding_features = {}
+
+        for k in self.padding_feature_keys:
+            if k in features:
+                padding_features[k] = features.get(k)
+
+        self.tokenizer.padding_side = self.padding_side
+        batch = self.tokenizer.pad(
+            padding_features,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors=self.return_tensors,
+        )
+
+        for k in features.keys():
+            if k not in self.padding_feature_keys:
+                batch[k] = features[k]
+
+        return batch
+
+    def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        chosens, rejected = [], []
+        
+        for feature in features:
+            chosens.append(feature["chosen"])
+            rejected.append(feature["rejected"])
+        
+        return {
+            "chosen": self.collate_and_pad(chosens),
+            "rejected": self.collate_and_pad(rejected),
+        }
+        
